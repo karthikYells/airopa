@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #fff1e5;
+  color: #1a1817;
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin top rule, FT-style */
+.rule-top {
+  background-image: linear-gradient(90deg, #990f3d 0 33%, #0d7680 33% 66%, #1a1817 66% 100%);
+  height: 3px;
+}
+
+/* Subtle paper grain for premium feel */
+.paper-grain {
+  background-image: radial-gradient(rgba(153, 15, 61, 0.04) 1px, transparent 1px);
+  background-size: 22px 22px;
+}

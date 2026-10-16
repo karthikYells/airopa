@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
+from app.adapters import apollo as apollo_adapter
 from app.adapters import registry as registry_adapter
 from app.adapters import wikidata as wikidata_adapter
 from app.adapters.web_scraper import ScrapeResult, scrape
@@ -74,10 +75,21 @@ def run_pipeline(
         # Real firmographics from Wikidata (best effort).
         wd = wikidata_adapter.resolve(sr.resolved_host or _host(input_url),
                                       name_hint=sr.page_title_name)
-        rec.resolved_name = (wd.label if wd.found else None) or sr.page_title_name \
+        # India people + firmographic gaps from Apollo (best effort; None if off).
+        ap = apollo_adapter.fetch(sr.resolved_host or _host(input_url), settings)
+        if ap is not None:
+            outcome.notes.append(
+                f"Apollo: {ap.india_people_count} India profiles, "
+                f"{len(ap.india_job_titles)} India postings, "
+                + ("cached (0 credits)." if ap.from_cache else f"{ap.credits_used} credit(s) used."))
+        ap_ok = ap is not None and ap.found
+
+        rec.resolved_name = (wd.label if wd.found else None) \
+            or (ap.name if ap_ok else None) or sr.page_title_name \
             or (sr.resolved_host or "").split(".")[0].title()
-        rec.country = country_code(wd.country) if wd.found else None
-        rec.jurisdiction = wd.country if wd.found else None
+        country_label = wd.country if wd.found else (ap.country if ap_ok else None)
+        rec.country = country_code(country_label)
+        rec.jurisdiction = country_label
         rec.alternate_domains = []
         if wd.found and wd.qid:
             rec.registry_id = f"wikidata:{wd.qid}"
@@ -92,11 +104,13 @@ def run_pipeline(
 
         # Classify sector -> India reference lookup (makes Scores B & C resolve).
         sector_key, sector_conf, sector_method = classify_sector(
-            sr.homepage_text, wikidata_industry=(wd.industry if wd.found else None), llm=llm)
+            sr.homepage_text,
+            wikidata_industry=(wd.industry if wd.found and wd.industry else (ap.industry if ap_ok else None)),
+            llm=llm)
         ref = reference_lookup(sector_key)
         rec.sector = ref.sector
         outcome.notes.append(f"Sector: {ref.sector} ({sector_method}, conf {sector_conf}).")
-        gate_inputs = collect_live(rec, sr, wd, ref, settings, llm=llm)
+        gate_inputs = collect_live(rec, sr, wd, ref, settings, llm=llm, apollo=ap)
 
     # ---------------- Tier 1: screen ----------------
     rec.gate = run_gate(gate_inputs, settings)

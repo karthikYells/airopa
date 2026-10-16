@@ -7,8 +7,9 @@ never counts toward disqualification and it feeds the >40% ambiguous CAUTION
 valve, so borderline companies reach a human rather than being silently dropped.
 
 Two runs on the same input data must produce the same classification, so the
-dictionary path is fully deterministic and the model path runs at temperature 0
-with write-back caching (see adapters/llm.py).
+dictionary path is fully deterministic and model results are cached per title
+(see adapters/llm.py). With a model configured, titles the dictionary leaves
+unresolved or AMBIGUOUS are sent to it in a single batch.
 """
 from __future__ import annotations
 
@@ -107,7 +108,32 @@ def classify_one(raw: str, llm=None, context: str | None = None) -> ClassifiedTi
 def classify_titles(
     raw_titles: list[str], llm=None, context: str | None = None
 ) -> list[ClassifiedTitle]:
-    return [classify_one(t, llm=llm, context=context) for t in raw_titles]
+    """Dictionary first; every title it leaves unresolved or AMBIGUOUS goes to
+    the model in one batch (when configured). Without a model this is exactly
+    the per-title dictionary path."""
+    if llm is None or not llm.enabled or not hasattr(llm, "classify_titles_batch"):
+        return [classify_one(t, llm=llm, context=context) for t in raw_titles]
+
+    out: list[ClassifiedTitle | None] = []
+    pending: list[tuple[int, str, str]] = []  # (index, raw, normalised)
+    for raw in raw_titles:
+        norm = normalise(raw)
+        hit = _dictionary_match(norm)
+        if hit is not None and hit[0] is not TitleClass.AMBIGUOUS:
+            cls, method, conf = hit
+            out.append(ClassifiedTitle(raw=raw, normalised=norm, title_class=cls,
+                                       method=method, confidence=conf))
+        else:
+            pending.append((len(out), raw, norm))
+            out.append(None)
+
+    if pending:
+        labels = llm.classify_titles_batch([raw for _, raw, _ in pending], context=context)
+        for i, raw, norm in pending:
+            cls, conf = labels[raw]
+            out[i] = ClassifiedTitle(raw=raw, normalised=norm, title_class=cls,
+                                     method="model", confidence=conf)
+    return out  # type: ignore[return-value]
 
 
 def title_mix(classified: list[ClassifiedTitle]) -> dict:

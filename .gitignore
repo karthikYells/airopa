@@ -8,6 +8,7 @@
 *.sqlite
 *.sqlite3
 backend/data/*.db
+backend/data/apollo_cache/
 
 # --- Python ---
 __pycache__/

@@ -44,6 +44,9 @@ TECH_TITLES: dict[str, list[str]] = {
         "s4 consultant", "s/4 consultant", "erp consultant",
         "salesforce developer", "dynamics developer", "servicenow developer",
         "workday integration",
+        # Any SAP-qualified role (e.g. 'SAP EWM Consultant', 'SAP BW Consultant').
+        # NON_TECH is matched first, so 'SAP sales manager' stays commercial.
+        "sap", "s4hana", "advanced business application programming",
     ],
     "security": [
         "security engineer", "cybersecurity analyst", "soc analyst",

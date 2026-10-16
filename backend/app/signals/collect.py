@@ -9,6 +9,7 @@ Market and Technology Hub inputs from the sector-keyed reference dataset
 """
 from __future__ import annotations
 
+from app.adapters.apollo import ApolloResult
 from app.adapters.web_scraper import ScrapeResult
 from app.adapters.wikidata import WikidataEntity
 from app.config import Settings
@@ -152,8 +153,26 @@ def _apply_reference(rec: CompanyRecord, ref: SectorReference) -> None:
     rec.add(_ref("IPR.30", ref.ip_intensity, notes="sector IP intensity"))
 
 
+def _apply_apollo_firmographics(rec: CompanyRecord, ap: ApolloResult) -> None:
+    """Fill scale signals Wikidata left UNKNOWN. Wikidata stays first choice."""
+    def missing(sid: str) -> bool:
+        ev = rec.get(sid)
+        return ev is None or not ev.is_resolved
+
+    common = dict(source_url=ap.source_url, source_type=SourceType.REFERENCE_DATA,
+                  source_authority=SourceAuthority.SECONDARY, method=Method.API,
+                  as_of_date=AS_OF, notes="Apollo.io estimate")
+    if ap.founded_year and missing("IDENT.08"):
+        rec.add(Evidence("IDENT.08", ap.founded_year, confidence=0.6, **common))
+    if ap.revenue_eur and missing("SCALE.01"):
+        rec.add(Evidence("SCALE.01", ap.revenue_eur, unit="EUR", confidence=0.5, **common))
+    if ap.employees and missing("SCALE.04"):
+        rec.add(Evidence("SCALE.04", ap.employees, unit="people", confidence=0.55, **common))
+
+
 def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
-                 ref: SectorReference, settings: Settings, llm=None) -> GateInputs:
+                 ref: SectorReference, settings: Settings, llm=None,
+                 apollo: ApolloResult | None = None) -> GateInputs:
     home = scrape.pages_fetched[0] if scrape.pages_fetched else scrape.input_url
 
     # --- firmographics from Wikidata (real, where present) ---
@@ -177,6 +196,9 @@ def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
             rec.ultimate_parent = wd.parent
         if wd.subsidiaries:
             rec.subsidiaries = [{"name": s} for s in wd.subsidiaries]
+
+    if apollo is not None and apollo.found:
+        _apply_apollo_firmographics(rec, apollo)
 
     # --- scope from the live tech stack ---
     if scrape.tech_stack:
@@ -221,6 +243,9 @@ def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
     rec.add(_ref("DEM.01", {"category": ref.sector}, conf=0.6))
 
     # --- India gate inputs ---
+    if apollo is not None and apollo.found:
+        return _india_gate_from_apollo(rec, scrape, wd, apollo, settings, llm, home)
+
     india_entity = wd.india_subsidiary or scrape.india_office_detected
     india_checks = scrape.india_checks + (2 if wd.found else 0) + len(scrape.india_pages)
     classified_india = classify_titles(scrape.india_careers_titles, llm=llm)
@@ -246,6 +271,40 @@ def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
         postings=min(1, sum(1 for c in classified_india if c.title_class is TitleClass.TECH)),
         announcement=False, parent_gcc=False, nic_codes=[],
         records=india_checks, min_records_override=settings.gate_min_evidence_records_live)
+
+
+def _india_gate_from_apollo(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
+                            ap: ApolloResult, settings: Settings, llm, home: str) -> GateInputs:
+    """India gate from Apollo's people database (GATE.01/04/06/08).
+
+    Apollo titles replace the crawl's careers-page titles, which on many sites
+    are navigation text rather than jobs. India headcount is Apollo's count of
+    India-located profiles; tech postings are India openings classed TECH.
+    """
+    people_src = dict(source_url=ap.source_url, source_type=SourceType.PEOPLE_DATA,
+                      source_authority=SourceAuthority.SECONDARY, method=Method.API,
+                      as_of_date=AS_OF)
+    india_entity = ap.india_people_count > 0 or wd.india_subsidiary or scrape.india_office_detected
+    rec.add(Evidence("GATE.01", bool(india_entity), confidence=0.7 if india_entity else 0.6,
+                     notes=f"Apollo: {ap.india_people_count} India-located profiles", **people_src))
+    rec.add(Evidence("GATE.04", ap.india_people_count, unit="people", confidence=0.6,
+                     notes="Apollo India-located profile count", **people_src))
+
+    classified = classify_titles(ap.india_titles, llm=llm)
+    postings_classified = classify_titles(ap.india_job_titles, llm=llm)
+    tech_postings = sum(1 for c in postings_classified if c.title_class is TitleClass.TECH)
+    if ap.job_postings_checked:
+        rec.add(Evidence("GATE.08", tech_postings, unit="India tech postings", confidence=0.6,
+                         notes=f"{len(ap.india_job_titles)} India postings on Apollo", **people_src))
+
+    # Apollo is a people search across the whole company, so its evidence counts
+    # for more than a single crawled page: one record per India profile sampled.
+    records = scrape.india_checks + (2 if wd.found else 0) + max(len(ap.india_titles), 3)
+    return _gate_inputs_from_titles(
+        entity_exists=bool(india_entity), india_headcount=ap.india_people_count,
+        classified=classified, postings=tech_postings,
+        announcement=False, parent_gcc=False, nic_codes=[],
+        records=records, min_records_override=settings.gate_min_evidence_records_live)
 
 
 def country_code(wikidata_country: str | None) -> str | None:

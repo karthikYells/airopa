@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     llm_model_small: str = "claude-haiku-5-5"
     llm_model_large: str = "claude-sonnet-5-5"
 
+    # --- Apollo (India people + firmographics) ---
+    apollo_api_key: str = ""
+    # Enrich + job postings cost 1 credit each per company; people search is free.
+    # Off by default: the free India people search is what the gate needs.
+    apollo_paid_calls: bool = False
+    apollo_cache_days: int = 30
+
     # --- storage ---
     database_url: str = "sqlite:///./data/airopa.db"
 
@@ -72,6 +79,10 @@ class Settings(BaseSettings):
     @property
     def llm_enabled(self) -> bool:
         return bool(self.anthropic_api_key)
+
+    @property
+    def apollo_enabled(self) -> bool:
+        return bool(self.apollo_api_key)
 
     def snapshot(self) -> dict:
         """Thresholds actually used on a run, stored with the record (Section 7)."""

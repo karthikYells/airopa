@@ -41,6 +41,7 @@ class ApolloResult:
     founded_year: int | None = None
     employees: int | None = None
     revenue_eur: int | None = None
+    total_people_count: int = 0   # all profiles at the domain: Apollo's coverage
     india_people_count: int = 0
     india_titles: list[str] = field(default_factory=list)
     india_job_titles: list[str] = field(default_factory=list)
@@ -48,6 +49,11 @@ class ApolloResult:
     credits_used: int = 0
     from_cache: bool = False
     fetched_at: float = 0.0
+
+    @property
+    def as_of(self) -> str:
+        """Date Apollo was queried (may be earlier than today when cached)."""
+        return time.strftime("%Y-%m-%d", time.localtime(self.fetched_at or time.time()))
 
     @property
     def source_url(self) -> str:
@@ -67,6 +73,14 @@ def parse_people(data: dict) -> tuple[int, list[str]]:
         total = (data.get("pagination") or {}).get("total_entries", len(people))
     titles = [p["title"].strip() for p in people if (p.get("title") or "").strip()]
     return int(total or 0), titles
+
+
+def parse_org_name(data: dict) -> str | None:
+    """The employer name most people in a search result share."""
+    names = [((p.get("organization") or {}).get("name") or "").strip()
+             for p in data.get("people") or []]
+    names = [n for n in names if n]
+    return max(set(names), key=names.count) if names else None
 
 
 def parse_org(data: dict) -> dict:
@@ -144,6 +158,15 @@ def fetch(host: str, settings: Settings) -> ApolloResult | None:
                 ("per_page", 100), ("page", 1)])
             r.raise_for_status()
             res.india_people_count, res.india_titles = parse_people(r.json())
+            # Free: all profiles at the domain. Distinguishes "no India staff"
+            # (company well covered, none in India) from "Apollo does not know
+            # this company" (no profiles at all).
+            r = c.post(f"{_API}/mixed_people/api_search", params=[
+                ("q_organization_domains_list[]", domain),
+                ("per_page", 5), ("page", 1)])
+            r.raise_for_status()
+            res.total_people_count, _ = parse_people(r.json())
+            res.name = parse_org_name(r.json())
         except Exception:
             return None
 
@@ -171,6 +194,9 @@ def fetch(host: str, settings: Settings) -> ApolloResult | None:
                 except Exception:
                     pass
 
-    res.found = bool(res.org_id or res.india_people_count or res.india_titles)
+    # Found = Apollo knows the company well enough that its India count means
+    # something. A handful of profiles is too thin to call "no India staff".
+    res.found = bool(res.org_id or res.india_people_count
+                     or res.total_people_count >= settings.apollo_min_profiles)
     _save_cache(res)
     return res

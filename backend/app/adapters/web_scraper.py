@@ -158,6 +158,29 @@ def _find_careers_links(html: str, base: str) -> list[str]:
     return _find_links(html, base, _CAREERS_HINTS, 4)
 
 
+_GENERIC_TITLES = {"home", "homepage", "home page", "welcome", "start", "startseite",
+                   "index", "main", "accueil", "inicio", "untitled"}
+
+
+def _name_guess(html: str, title: str) -> str | None:
+    """Company name from the site: og:site_name first, then the page title's
+    first segment, never a generic word like 'Home'."""
+    candidates = []
+    try:
+        meta = HTMLParser(html).css_first('meta[property="og:site_name"]')
+        if meta and (meta.attributes.get("content") or "").strip():
+            candidates.append(meta.attributes["content"].strip())
+    except Exception:
+        pass
+    if title:
+        parts = [p.strip() for p in re.split(r"\s[|\-–—:]\s", title) if p.strip()]
+        candidates += parts
+    for c in candidates:
+        if c.lower() not in _GENERIC_TITLES and len(c) <= 80:
+            return c
+    return None
+
+
 def _page_title(html: str) -> str:
     try:
         t = HTMLParser(html).css_first("title")
@@ -235,7 +258,14 @@ def scrape(input_url: str) -> ScrapeResult:
     headers = {"User-Agent": _UA, "Accept-Language": "en,de,nl,fr"}
     try:
         with httpx.Client(timeout=_TIMEOUT, follow_redirects=True, headers=headers) as c:
-            home = c.get(url)
+            # One retry: a single slow first response (cold CDN cache) should not
+            # mark a live site 'unreachable'.
+            try:
+                home = c.get(url)
+            except httpx.TransportError:
+                home = c.get(url)
+            if home.status_code >= 500:
+                home = c.get(url)
             if home.status_code >= 400:
                 return res
             res.reachable = True
@@ -244,8 +274,7 @@ def scrape(input_url: str) -> ScrapeResult:
             res.homepage_text = _text(home_html)[:20000]
             res.product_text = res.homepage_text[:4000]
             res.site_title = _page_title(home_html)
-            if res.site_title:
-                res.page_title_name = res.site_title.split("|")[0].split("-")[0].strip()[:80]
+            res.page_title_name = _name_guess(home_html, res.site_title)
 
             # India check on the homepage counts.
             res.india_checks += 1

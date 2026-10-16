@@ -122,8 +122,20 @@ def _unit_qid(unit_uri: str) -> str:
     return unit_uri.rstrip("/").split("/")[-1] if unit_uri else ""
 
 
+def _strip_www(host: str) -> str:
+    host = host.lower().split(":")[0]
+    return host[4:] if host.startswith("www.") else host
+
+
+def _official_site(claims: dict) -> str | None:
+    try:
+        return _strip_www(urlparse(claims["P856"][0]["mainsnak"]["datavalue"]["value"]).netloc)
+    except (KeyError, IndexError, TypeError):
+        return None
+
+
 def resolve(domain: str, name_hint: str | None = None) -> WikidataEntity:
-    host = domain.lower().lstrip("www.")
+    host = _strip_www(domain)
     base = host.split(".")[0]
     candidates: list[str] = []
     try:
@@ -153,20 +165,18 @@ def resolve(domain: str, name_hint: str | None = None) -> WikidataEntity:
     chosen_by = ""
     # 1) exact website host match
     for qid in ordered:
-        ent = entities.get(qid, {})
-        claims = ent.get("claims", {})
-        site = None
-        try:
-            site = claims["P856"][0]["mainsnak"]["datavalue"]["value"]
-        except (KeyError, IndexError, TypeError):
-            pass
-        if site and urlparse(site).netloc.lower().lstrip("www.") == host:
+        if _official_site(entities.get(qid, {}).get("claims", {})) == host:
             chosen_qid, chosen_by = qid, "website"
             break
-    # 2) first candidate that is an organisation
+    # 2) first candidate that is an organisation — but never one whose official
+    # website is a different domain: a shared name is not the same company
+    # (etex.com, a Saudi textile firm, is not Etex at etexgroup.com).
     if not chosen_qid:
         for qid in ordered:
             claims = entities.get(qid, {}).get("claims", {})
+            site = _official_site(claims)
+            if site and site != host:
+                continue
             if set(_claim_qids(claims, "P31")) & _ORG_QIDS:
                 chosen_qid, chosen_by = qid, "organisation"
                 break

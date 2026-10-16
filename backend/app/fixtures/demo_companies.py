@@ -281,7 +281,8 @@ SEEDS: dict[str, Seed] = {
 
 
 def get_seed(domain: str) -> Seed | None:
-    d = domain.lower().lstrip("www.")
+    d = domain.lower().split(":")[0]
+    d = d[4:] if d.startswith("www.") else d
     for key, seed in SEEDS.items():
         if d == key or d.endswith("." + key) or key in d:
             return seed

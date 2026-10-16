@@ -82,3 +82,15 @@ def test_reference_consistency_same_sector():
     a = lookup("software_saas")
     b = lookup("software_saas")
     assert a.market_size_eur == b.market_size_eur  # consistent per sector
+
+
+def test_model_decides_sector_over_customer_keywords():
+    class FakeLLM:
+        enabled = True
+        def classify_sector(self, text, keys, name=None, industry=None):
+            return "industrial_machinery"
+    # Keyword counting alone would say food_beverage.
+    text = "Packaging machines for the food industry: bakery, biscuits, food, food."
+    assert classify_sector(text)[0] == "food_beverage"
+    key, conf, method = classify_sector(text, llm=FakeLLM(), name="Royal Houdijk")
+    assert (key, method) == ("industrial_machinery", "model")

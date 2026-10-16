@@ -31,9 +31,14 @@ class LLM:
     def enabled(self) -> bool:
         return self._client is not None
 
+    # Current models think before answering and that counts against max_tokens;
+    # without headroom a short answer (a 20-token sector key) comes back empty.
+    _THINKING_HEADROOM = 2048
+
     def _complete(self, model: str, system: str, user: str, max_tokens: int) -> str:
+        """`max_tokens` is the answer budget; thinking headroom is added on top."""
         msg = self._client.messages.create(
-            model=model, max_tokens=max_tokens,
+            model=model, max_tokens=max_tokens + self._THINKING_HEADROOM,
             system=system, messages=[{"role": "user", "content": user}],
         )
         return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
@@ -99,14 +104,21 @@ class LLM:
         return out
 
     # --- small model: sector classification for the reference lookup ---
-    def classify_sector(self, text: str, sector_keys: list[str]) -> str:
+    def classify_sector(self, text: str, sector_keys: list[str], name: str | None = None,
+                        industry: str | None = None) -> str:
         if not self.enabled:
             return ""
         system = (
-            "You map a company to exactly one sector key from a fixed list, using "
-            "its website text. Reply with the single key only, nothing else."
+            "You map a company to exactly one sector key from a fixed list. Classify "
+            "by what the company itself makes or does, not by who its customers are: "
+            "a maker of packaging machines for bakeries is industrial_machinery, not "
+            "food_beverage; an online supermarket with its own delivery is "
+            "logistics_distribution or consumer_goods, not software_saas; a wholesale "
+            "distributor of parts is logistics_distribution. Ignore cookie banners, "
+            "navigation and language pickers. Reply with the single key only."
         )
-        user = f"Keys: {', '.join(sector_keys)}\n\nWebsite text:\n{text}"
+        user = (f"Keys: {', '.join(sector_keys)}\n\nCompany: {name or 'unknown'}\n"
+                f"Registry industry: {industry or 'unknown'}\n\nWebsite text:\n{text}")
         try:
             out = self._complete(self._settings.llm_model_small, system, user, 20)
             return out.strip().split()[0].strip(".,")

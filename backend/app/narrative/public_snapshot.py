@@ -43,11 +43,14 @@ def _india_status_line(rec: CompanyRecord) -> str:
     if v is GateVerdict.CONFIRMED:
         return ("You already operate an India capability centre with technology "
                 "roles in place.")
+    # Attributed to public sources: these two rest on people data and site
+    # crawls, which can miss a small entity or count remote staff.
     if v is GateVerdict.CLEAR:
-        return ("You have an India entity, but no technology roles are staffed "
-                "there today.")
+        return ("Public sources show an India presence, but no technology roles "
+                "staffed there today.")
     if v is GateVerdict.CLEAR_GREENFIELD:
-        return "You have no India entity and no India technology presence today."
+        return ("Public sources show no India entity and no India technology "
+                "presence today.")
     return "Your India status could not be confirmed from public sources."
 
 

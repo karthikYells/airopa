@@ -47,3 +47,11 @@ def test_registrable_domain():
     assert _site("jobs.nike.com") == "nike.com"
     assert _site("careers.example.co.uk") == "example.co.uk"
     assert _site("www.hettich.com") == "hettich.com"
+
+
+def test_name_guess_skips_generic_titles():
+    from app.adapters.web_scraper import _name_guess
+    assert _name_guess("<title>Home</title>", "Home") is None
+    assert _name_guess("", "Home | DGS Packaging Solutions") == "DGS Packaging Solutions"
+    html = '<meta property="og:site_name" content="Royal Houdijk">'
+    assert _name_guess(html, "Welcome") == "Royal Houdijk"

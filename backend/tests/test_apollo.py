@@ -110,3 +110,36 @@ def test_batch_sends_ambiguous_and_misses_to_model_once():
     out = classify_titles(["Software Engineer", "Consultant", "Process Associate"], llm=llm)
     assert llm.calls == [["Consultant", "Process Associate"]]  # one batch, dictionary hits skipped
     assert [c.method for c in out] == ["dictionary", "model", "model"]
+
+
+def test_few_india_profiles_are_not_an_entity():
+    # Kramp-like: 4 non-tech people in India is not an India entity.
+    ap = ApolloResult(found=True, domain="example.de", india_people_count=4,
+                      india_titles=["Sales Manager", "Account Manager", "Area Sales Manager",
+                                    "Key Account Manager"])
+    rec, gi = _run(ap)
+    assert rec.get("GATE.01").value is False
+    assert run_gate(gi, S).verdict is GateVerdict.CLEAR_GREENFIELD
+
+
+def test_few_india_profiles_with_tech_go_to_review():
+    ap = ApolloResult(found=True, domain="example.de", india_people_count=6,
+                      india_titles=["Software Engineer"] * 5 + ["Sales Manager"])
+    _, gi = _run(ap)
+    assert run_gate(gi, S).verdict is GateVerdict.CAUTION  # no entity but tech: a human looks
+
+
+def test_parse_org_name_majority():
+    from app.adapters.apollo import parse_org_name
+    data = {"people": [{"organization": {"name": "Etex"}}, {"organization": {"name": "Etex"}},
+                       {"organization": {"name": "Etex Building Performance"}}, {}]}
+    assert parse_org_name(data) == "Etex"
+
+
+def test_apollo_evidence_dated_when_queried():
+    import time
+    ap = ApolloResult(found=True, domain="example.de", india_people_count=250,
+                      india_titles=["Software Engineer"] * 8,
+                      fetched_at=time.mktime((2026, 9, 1, 12, 0, 0, 0, 0, -1)))
+    rec, _ = _run(ap)
+    assert rec.get("GATE.04").as_of_date == "2026-09-01"

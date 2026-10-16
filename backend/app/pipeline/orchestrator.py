@@ -15,6 +15,7 @@ whose provisional GCC Fit clears the configurable threshold (Section 2).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from urllib.parse import urlparse
 
 from app.adapters import apollo as apollo_adapter
@@ -72,10 +73,8 @@ def run_pipeline(
             outcome.notes.append("Website unreachable — cannot assess.")
             return outcome
 
-        # Real firmographics from Wikidata (best effort).
-        wd = wikidata_adapter.resolve(sr.resolved_host or _host(input_url),
-                                      name_hint=sr.page_title_name)
         # India people + firmographic gaps from Apollo (best effort; None if off).
+        # Runs first so its company name can steer the Wikidata search.
         ap = apollo_adapter.fetch(sr.resolved_host or _host(input_url), settings)
         if ap is not None:
             outcome.notes.append(
@@ -83,6 +82,10 @@ def run_pipeline(
                 f"{len(ap.india_job_titles)} India postings, "
                 + ("cached (0 credits)." if ap.from_cache else f"{ap.credits_used} credit(s) used."))
         ap_ok = ap is not None and ap.found
+
+        # Real firmographics from Wikidata (best effort).
+        wd = wikidata_adapter.resolve(sr.resolved_host or _host(input_url),
+                                      name_hint=(ap.name if ap_ok and ap.name else sr.page_title_name))
 
         rec.resolved_name = (wd.label if wd.found else None) \
             or (ap.name if ap_ok else None) or sr.page_title_name \
@@ -106,7 +109,7 @@ def run_pipeline(
         sector_key, sector_conf, sector_method = classify_sector(
             sr.homepage_text,
             wikidata_industry=(wd.industry if wd.found and wd.industry else (ap.industry if ap_ok else None)),
-            llm=llm)
+            llm=llm, name=rec.resolved_name)
         ref = reference_lookup(sector_key)
         rec.sector = ref.sector
         outcome.notes.append(f"Sector: {ref.sector} ({sector_method}, conf {sector_conf}).")
@@ -118,7 +121,7 @@ def run_pipeline(
     rec.add(Evidence("GATE.06", gate_inputs.india_tech_role_count,
                      source_type=SourceType.INFERENCE,
                      inference_inputs=["classified india titles"], confidence=0.6,
-                     method=Method.DICTIONARY, as_of_date="2026-01-15"))
+                     method=Method.DICTIONARY, as_of_date=date.today().isoformat()))
 
     hits = evaluate_exclusions(rec, settings)
     rec.exclusions = list(hits)

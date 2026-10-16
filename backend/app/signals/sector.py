@@ -1,10 +1,9 @@
 """Sector classification — maps a company to an India-reference sector key.
 
-Deterministic keyword scoring over the company's own homepage/product text and
-its Wikidata industry label, with an optional Claude fallback when the keyword
-score is weak. The result keys the India reference lookup (Section 6.2), so it
-must be reproducible: the keyword path is fully deterministic and the model path
-runs at temperature 0.
+Claude decides when configured (name + registry industry + site text); otherwise
+deterministic keyword scoring over the company's own homepage/product text and
+its Wikidata industry label. The result keys the India reference lookup
+(Section 6.2); the keyword path is fully deterministic.
 """
 from __future__ import annotations
 
@@ -48,8 +47,19 @@ _KEYWORDS: dict[str, list[str]] = {
 
 
 def classify_sector(text: str, wikidata_industry: str | None = None,
-                    llm=None) -> tuple[str | None, float, str]:
-    """Returns (sector_key | None, confidence, method)."""
+                    llm=None, name: str | None = None) -> tuple[str | None, float, str]:
+    """Returns (sector_key | None, confidence, method).
+
+    With a model configured it decides first: keyword counts are fooled by
+    customer words ('food' on a food-machinery maker's site, 'app' on an online
+    grocer's). Keyword scoring is the deterministic fallback.
+    """
+    if llm is not None and llm.enabled and (text or "").strip():
+        key = llm.classify_sector(text[:3000], list(_KEYWORDS.keys()),
+                                  name=name, industry=wikidata_industry)
+        if key in _KEYWORDS:
+            return key, 0.75, "model"
+
     blob = (text or "").lower()
     if wikidata_industry:
         blob += " " + wikidata_industry.lower() * 3  # weight the structured hint
@@ -66,12 +76,6 @@ def classify_sector(text: str, wikidata_industry: str | None = None,
         conf = min(0.9, 0.4 + scores[best] / max(total, 1) * 0.5)
         if scores[best] >= 2:
             return best, round(conf, 2), "keyword"
-
-    # Weak or no keyword signal: ask the model if available.
-    if llm is not None and llm.enabled and blob.strip():
-        key = llm.classify_sector(text[:3000], list(_KEYWORDS.keys()))
-        if key in _KEYWORDS:
-            return key, 0.6, "model"
 
     if scores:  # weak keyword hit, better than nothing
         best = max(scores, key=scores.get)

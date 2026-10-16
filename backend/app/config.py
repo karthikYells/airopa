@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # Off by default: the free India people search is what the gate needs.
     apollo_paid_calls: bool = False
     apollo_cache_days: int = 30
+    # Profiles Apollo must hold for a company before "0 in India" counts as
+    # evidence of no India presence (TUNE).
+    apollo_min_profiles: int = 50
+    # India-located profiles needed before Apollo alone counts as an India entity
+    # (GATE.01). Below this, a few people are more likely remote staff or agents
+    # than a legal entity (TUNE).
+    apollo_india_entity_min: int = 10
 
     # --- storage ---
     database_url: str = "sqlite:///./data/airopa.db"

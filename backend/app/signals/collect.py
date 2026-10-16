@@ -9,6 +9,8 @@ Market and Technology Hub inputs from the sector-keyed reference dataset
 """
 from __future__ import annotations
 
+from datetime import date
+
 from app.adapters.apollo import ApolloResult
 from app.adapters.web_scraper import ScrapeResult
 from app.adapters.wikidata import WikidataEntity
@@ -153,6 +155,11 @@ def _apply_reference(rec: CompanyRecord, ref: SectorReference) -> None:
     rec.add(_ref("IPR.30", ref.ip_intensity, notes="sector IP intensity"))
 
 
+def _today() -> str:
+    """As-of date for facts read live on this run (crawl, site evidence)."""
+    return date.today().isoformat()
+
+
 def _apply_apollo_firmographics(rec: CompanyRecord, ap: ApolloResult) -> None:
     """Fill scale signals Wikidata left UNKNOWN. Wikidata stays first choice."""
     def missing(sid: str) -> bool:
@@ -161,7 +168,7 @@ def _apply_apollo_firmographics(rec: CompanyRecord, ap: ApolloResult) -> None:
 
     common = dict(source_url=ap.source_url, source_type=SourceType.REFERENCE_DATA,
                   source_authority=SourceAuthority.SECONDARY, method=Method.API,
-                  as_of_date=AS_OF, notes="Apollo.io estimate")
+                  as_of_date=ap.as_of, notes="Apollo.io estimate")
     if ap.founded_year and missing("IDENT.08"):
         rec.add(Evidence("IDENT.08", ap.founded_year, confidence=0.6, **common))
     if ap.revenue_eur and missing("SCALE.01"):
@@ -206,36 +213,36 @@ def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
         if erp:
             rec.add(Evidence("SCOPE.01", erp, source_url=home, source_type=SourceType.JOB_POSTING,
                              source_authority=SourceAuthority.SECONDARY, confidence=0.55,
-                             method=Method.PARSER, as_of_date="2026-01-15"))
+                             method=Method.PARSER, as_of_date=_today()))
         others = [t for t in scrape.tech_stack if not t.startswith("SAP")]
         if others:
             rec.add(Evidence("SCOPE.02", others, source_url=home, source_type=SourceType.JOB_POSTING,
-                             confidence=0.5, method=Method.PARSER, as_of_date="2026-01-15"))
+                             confidence=0.5, method=Method.PARSER, as_of_date=_today()))
         legacy = [t for t in scrape.tech_stack if t == "Mainframe/COBOL"]
         if legacy:
             rec.add(Evidence("SCOPE.05", legacy, source_url=home, source_type=SourceType.JOB_POSTING,
-                             confidence=0.5, method=Method.PARSER, as_of_date="2026-01-15"))
+                             confidence=0.5, method=Method.PARSER, as_of_date=_today()))
 
     # --- hiring from their own careers pages ---
     if scrape.job_titles:
         rec.add(Evidence("HIRE.01", len(scrape.job_titles), unit="open roles",
                          source_url=home, source_type=SourceType.COMPANY_SITE,
                          source_authority=SourceAuthority.PRIMARY, confidence=0.7,
-                         method=Method.PARSER, as_of_date="2026-01-15"))
+                         method=Method.PARSER, as_of_date=_today()))
         classified_all = classify_titles(scrape.job_titles, llm=llm)
         tech_share = sum(1 for c in classified_all if c.title_class is TitleClass.TECH) / max(len(classified_all), 1)
         rec.add(Evidence("HIRE.04", round(tech_share, 2), unit="tech share",
                          source_url=home, source_type=SourceType.COMPANY_SITE,
-                         confidence=0.5, method=Method.DICTIONARY, as_of_date="2026-01-15"))
+                         confidence=0.5, method=Method.DICTIONARY, as_of_date=_today()))
     if scrape.tech_exec_named:
         rec.add(Evidence("ROUTE.01", True, source_url=home, source_type=SourceType.COMPANY_SITE,
-                         confidence=0.6, method=Method.PARSER, as_of_date="2026-01-15"))
+                         confidence=0.6, method=Method.PARSER, as_of_date=_today()))
 
     # --- TAL.01: required skill families, derived from their estate (if any) ---
     if scrape.tech_stack:
         rec.add(Evidence("TAL.01", scrape.tech_stack[:5], source_type=SourceType.INFERENCE,
                          inference_inputs=["SCOPE.01", "SCOPE.02"], confidence=0.5,
-                         method=Method.MODEL, as_of_date="2026-01-15",
+                         method=Method.MODEL, as_of_date=_today(),
                          notes="Derived from the technology stack on their own site."))
 
     # --- India reference dataset (makes Scores B & C resolve) ---
@@ -253,12 +260,12 @@ def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
         rec.add(Evidence("GATE.01", True, source_url=(scrape.india_pages[0] if scrape.india_pages else home),
                          source_type=SourceType.INFERENCE,
                          inference_inputs=["site India office detection", "Wikidata subsidiaries"],
-                         confidence=0.5, method=Method.MODEL, as_of_date="2026-01-15"))
+                         confidence=0.5, method=Method.MODEL, as_of_date=_today()))
         entity_val = True
     elif scrape.reachable and india_checks >= 3:
         rec.add(Evidence("GATE.01", False, source_url=home, source_type=SourceType.INFERENCE,
                          inference_inputs=[f"{india_checks} India-targeted checks, none positive"],
-                         confidence=0.45, method=Method.MODEL, as_of_date="2026-01-15"))
+                         confidence=0.45, method=Method.MODEL, as_of_date=_today()))
         entity_val = False
     else:
         entity_val = UNKNOWN
@@ -283,10 +290,15 @@ def _india_gate_from_apollo(rec: CompanyRecord, scrape: ScrapeResult, wd: Wikida
     """
     people_src = dict(source_url=ap.source_url, source_type=SourceType.PEOPLE_DATA,
                       source_authority=SourceAuthority.SECONDARY, method=Method.API,
-                      as_of_date=AS_OF)
-    india_entity = ap.india_people_count > 0 or wd.india_subsidiary or scrape.india_office_detected
+                      as_of_date=ap.as_of)
+    india_entity = (ap.india_people_count >= settings.apollo_india_entity_min
+                    or wd.india_subsidiary or scrape.india_office_detected)
     rec.add(Evidence("GATE.01", bool(india_entity), confidence=0.7 if india_entity else 0.6,
-                     notes=f"Apollo: {ap.india_people_count} India-located profiles", **people_src))
+                     notes=(f"Apollo: {ap.india_people_count} India-located profiles "
+                            f"(entity threshold {settings.apollo_india_entity_min}); "
+                            f"Wikidata India subsidiary: {wd.india_subsidiary}; "
+                            f"site India office: {scrape.india_office_detected}"),
+                     **people_src))
     rec.add(Evidence("GATE.04", ap.india_people_count, unit="people", confidence=0.6,
                      notes="Apollo India-located profile count", **people_src))
 

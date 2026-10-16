@@ -24,9 +24,33 @@ from selectolax.parser import HTMLParser
 _UA = "AiropaBot/1.0 (+https://airopa.co; public assessment)"
 _TIMEOUT = httpx.Timeout(8.0, connect=5.0)
 
-_CAREERS_HINTS = ["career", "careers", "jobs", "vacanc", "join-us", "join us",
-                  "work-with-us", "working-at", "stellen", "karriere", "vacatures",
-                  "emploi", "recrutement"]
+# 'Join us' is deliberately absent: retail and membership sites use it for
+# sign-up pages (nike.com), whose menus were then read as job titles.
+_CAREERS_HINTS = ["career", "careers", "jobs", "vacanc", "work-with-us",
+                  "working-at", "stellen", "karriere", "vacatures", "emploi",
+                  "recrutement"]
+
+# A careers-page line counts as a job title only if it names a role. Without
+# this, navigation and product menus ('Find a Store', 'Running Shoes') were
+# counted as jobs.
+_ROLE_WORDS = re.compile(
+    r"\b(engineer|developer|programmer|architect|analyst|scientist|consultant|"
+    r"manager|director|head|lead|leader|specialist|expert|officer|administrator|"
+    r"technician|designer|coordinator|associate|assistant|executive|representative|"
+    r"advisor|adviser|accountant|controller|planner|buyer|operator|mechanic|"
+    r"electrician|intern|internship|trainee|apprentice|graduate|tester|devops|sre|"
+    r"owner|scrum master|recruiter|partner|agent|supervisor|foreman|"
+    # German / Dutch / French
+    r"ingenieur|entwickler|leiter|leiterin|mitarbeiter|mitarbeiterin|referent|"
+    r"sachbearbeiter|techniker|berater|beraterin|projektleiter|werkstudent|"
+    r"ausbildung|praktikum|medewerker|adviseur|ontwikkelaar|monteur|stagiair|"
+    r"developpeur|responsable|chef de projet|technicien|stage)\b"
+    r"|\(m/w/d\)|\(w/m/d\)|\(m/f/d\)|\(f/m/d\)|\(h/f\)|\(m/v\)",
+    re.IGNORECASE)
+
+_INDIA_WORD = re.compile(
+    r"\b(india|bengaluru|bangalore|pune|hyderabad|chennai|mumbai|gurgaon|"
+    r"gurugram|noida|kolkata|ahmedabad)\b", re.IGNORECASE)
 
 # Other pages worth a look for firmographics and India presence.
 _INFO_HINTS = ["about", "about-us", "company", "who-we-are", "unternehmen",
@@ -60,7 +84,7 @@ _TECH_EXEC = ["chief information officer", "chief technology officer",
               "head of digital", "vp engineering", "vp of engineering"]
 
 # Job-title line heuristic: short lines that look like a role.
-_TITLE_LINE = re.compile(r"^[A-Z][A-Za-z0-9&/()+.\- ]{3,60}$")
+_TITLE_LINE = re.compile(r"^[A-Z][A-Za-z0-9&/()+.,\- ]{3,70}$")
 
 
 @dataclass
@@ -101,6 +125,15 @@ def _text(html: str) -> str:
         return ""
 
 
+def _site(host: str) -> str:
+    """Registrable domain, roughly: 'jobs.nike.com' -> 'nike.com',
+    'careers.example.co.uk' -> 'example.co.uk'."""
+    parts = host.lower().split(":")[0].split(".")
+    if len(parts) >= 3 and parts[-2] in ("co", "com", "org", "net", "ac", "gov") and len(parts[-1]) == 2:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
+
+
 def _find_links(html: str, base: str, hints: list[str], limit: int) -> list[str]:
     out: list[str] = []
     try:
@@ -111,8 +144,9 @@ def _find_links(html: str, base: str, hints: list[str], limit: int) -> list[str]
             label = (a.text() or "").lower()
             if any(h in href.lower() or h in label for h in hints):
                 full = urljoin(base, href)
-                if urlparse(full).netloc not in ("", host):
-                    continue  # stay on the company's own domain
+                netloc = urlparse(full).netloc
+                if netloc and netloc != host and _site(netloc) != _site(host):
+                    continue  # stay on the company's own site (subdomains allowed)
                 if full not in out:
                     out.append(full)
     except Exception:
@@ -150,23 +184,47 @@ def _india_office(text: str) -> bool:
         low))
 
 
-def _extract_titles(text: str) -> list[str]:
-    titles: list[str] = []
-    for line in text.splitlines():
-        line = line.strip()
-        if _TITLE_LINE.match(line) and 1 <= len(line.split()) <= 7:
-            # Filter obvious non-titles (nav, legal).
-            low = line.lower()
-            if any(w in low for w in ["cookie", "privacy", "imprint", "copyright",
-                                      "contact", "newsletter", "sitemap"]):
-                continue
-            titles.append(line)
-    # De-dup, keep order.
-    seen, out = set(), []
-    for t in titles:
-        if t.lower() not in seen:
-            seen.add(t.lower()); out.append(t)
-    return out[:120]
+def _extract_titles(text: str) -> list[tuple[str, bool]]:
+    """Job titles on a careers page, each with whether it is located in India.
+
+    A line counts as a title only if it is short, title-shaped AND names a role.
+    India is judged per title from the title line and the few lines after it
+    (where listings put the location), not from 'India' anywhere on the page —
+    a country selector would otherwise make every title an India title.
+    """
+    lines = [l.strip() for l in text.splitlines()]
+    lines = [l for l in lines if l]
+
+    def is_title(line: str) -> bool:
+        if not (_TITLE_LINE.match(line) and 1 <= len(line.split()) <= 9):
+            return False
+        low = line.lower()
+        if any(w in low for w in ["cookie", "privacy", "imprint", "copyright",
+                                  "contact", "newsletter", "sitemap",
+                                  "chat with", "virtual assistant"]):
+            return False
+        return bool(_ROLE_WORDS.search(line))
+
+    found: list[tuple[str, bool]] = []
+    for i, line in enumerate(lines):
+        if not is_title(line):
+            continue
+        # Location: the title itself plus up to four following lines (listings
+        # often put a req id and a 'Job location' label first), stopping at the
+        # next title and skipping list-like lines (country pickers).
+        nearby = [line]
+        for nxt in lines[i + 1:i + 5]:
+            if is_title(nxt):
+                break
+            if nxt.count(",") < 3:
+                nearby.append(nxt)
+        found.append((line, bool(_INDIA_WORD.search(" ".join(nearby)))))
+    # De-dup, keep order; a title is India if any occurrence is.
+    out: dict[str, tuple[str, bool]] = {}
+    for t, india in found:
+        k = t.lower()
+        out[k] = (out[k][0], out[k][1] or india) if k in out else (t, india)
+    return list(out.values())[:120]
 
 
 def scrape(input_url: str) -> ScrapeResult:
@@ -206,10 +264,10 @@ def scrape(input_url: str) -> ScrapeResult:
                         res.india_checks += 1
                         ctext = _text(cp.text)
                         page_titles = _extract_titles(ctext)
-                        res.job_titles.extend(page_titles)
-                        low = ctext.lower()
-                        if any(h in low for h in _INDIA_HINTS):
-                            res.india_careers_titles.extend(page_titles)
+                        res.job_titles.extend(t for t, _ in page_titles)
+                        india_titles = [t for t, india in page_titles if india]
+                        if india_titles:
+                            res.india_careers_titles.extend(india_titles)
                             res.india_pages.append(str(cp.url))
                         if _india_office(ctext):
                             res.india_office_detected = True

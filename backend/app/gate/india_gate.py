@@ -72,8 +72,10 @@ def run_gate(g: GateInputs, settings: Settings) -> GateResult:
                       f"fewer than {min_records} records.")
 
     # Section 3.3 counterweight: ambiguous titles over the share cap -> CAUTION,
-    # regardless of counts, so a borderline mix reaches a human.
-    if mix["total"] and mix["shares"][TitleClass.AMBIGUOUS.value] > settings.gate_ambiguous_share_caution:
+    # so a borderline mix reaches a human. Only on a sample big enough for a
+    # share to mean something: 1 unclear title of 2 is not "50% ambiguous".
+    if (mix["total"] >= settings.gate_ambiguous_min_titles
+            and mix["shares"][TitleClass.AMBIGUOUS.value] > settings.gate_ambiguous_share_caution):
         return result(GateVerdict.CAUTION,
                       "Ambiguous titles exceed "
                       f"{int(settings.gate_ambiguous_share_caution * 100)}% of the "

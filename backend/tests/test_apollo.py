@@ -143,3 +143,11 @@ def test_apollo_evidence_dated_when_queried():
                       fetched_at=time.mktime((2026, 9, 1, 12, 0, 0, 0, 0, -1)))
     rec, _ = _run(ap)
     assert rec.get("GATE.04").as_of_date == "2026-09-01"
+
+
+def test_ambiguous_rule_ignores_tiny_samples():
+    # Etex-like: 2 India profiles, 1 unclear title -> not "50% ambiguous".
+    ap = ApolloResult(found=True, domain="example.de", india_people_count=2,
+                      india_titles=["Sales Manager", "Associate"])
+    _, gi = _run(ap)
+    assert run_gate(gi, S).verdict is GateVerdict.CLEAR_GREENFIELD

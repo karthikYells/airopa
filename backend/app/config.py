@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     gate_min_evidence_records_live: int = 4  # live crawl path (fewer, targeted sources)
     gate_it_support_escalate: int = 15
     gate_ambiguous_share_caution: float = 0.40
+    gate_ambiguous_min_titles: int = 10  # ambiguous-share rule needs this many titles
 
     # --- exclusion TUNE thresholds (Section 4.1) ---
     x5_revenue_floor_eur: int = 200_000_000
@@ -101,6 +102,7 @@ class Settings(BaseSettings):
             "gate_min_evidence_records": self.gate_min_evidence_records,
             "gate_it_support_escalate": self.gate_it_support_escalate,
             "gate_ambiguous_share_caution": self.gate_ambiguous_share_caution,
+            "gate_ambiguous_min_titles": self.gate_ambiguous_min_titles,
             "x5_revenue_floor_eur": self.x5_revenue_floor_eur,
             "x6_revenue_ceiling_eur": self.x6_revenue_ceiling_eur,
             "x7_headcount_floor": self.x7_headcount_floor,

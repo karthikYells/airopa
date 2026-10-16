@@ -37,6 +37,7 @@ from app.scoring.india_market import score_india_market
 from app.scoring.interactions import apply_interactions
 from app.scoring.technology_hub import score_technology_hub
 from app.signals.collect import collect_from_seed, collect_live, country_code
+from app.signals import sector_cache
 from app.signals.sector import classify_sector
 
 
@@ -106,10 +107,18 @@ def run_pipeline(
             return outcome
 
         # Classify sector -> India reference lookup (makes Scores B & C resolve).
-        sector_key, sector_conf, sector_method = classify_sector(
-            sr.homepage_text,
-            wikidata_industry=(wd.industry if wd.found and wd.industry else (ap.industry if ap_ok else None)),
-            llm=llm, name=rec.resolved_name)
+        # A model-decided sector is remembered per domain so scores are stable.
+        domain = apollo_adapter.normalise_domain(sr.resolved_host or _host(input_url))
+        sector_key = sector_cache.get(domain)
+        if sector_key is not None:
+            sector_conf, sector_method = 0.75, "model (saved)"
+        else:
+            sector_key, sector_conf, sector_method = classify_sector(
+                sr.homepage_text,
+                wikidata_industry=(wd.industry if wd.found and wd.industry else (ap.industry if ap_ok else None)),
+                llm=llm, name=rec.resolved_name)
+            if sector_method == "model" and sector_key:
+                sector_cache.put(domain, sector_key)
         ref = reference_lookup(sector_key)
         rec.sector = ref.sector
         outcome.notes.append(f"Sector: {ref.sector} ({sector_method}, conf {sector_conf}).")

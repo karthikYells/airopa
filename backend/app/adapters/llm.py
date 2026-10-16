@@ -31,7 +31,7 @@ class LLM:
 
     def _complete(self, model: str, system: str, user: str, max_tokens: int) -> str:
         msg = self._client.messages.create(
-            model=model, max_tokens=max_tokens, temperature=0,
+            model=model, max_tokens=max_tokens,
             system=system, messages=[{"role": "user", "content": user}],
         )
         return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")

@@ -7,6 +7,8 @@ list. Every panel is generated only if its supporting signals resolved
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.config import Settings
 from app.data.records import CompanyRecord, ScoreResult
 from app.pipeline.orchestrator import PipelineOutcome
@@ -51,9 +53,17 @@ def _recommended_model(rec: CompanyRecord) -> dict:
 def build_brief(outcome: PipelineOutcome, settings: Settings) -> dict:
     rec = outcome.record
     gate = rec.gate
+
+    def val(sid):
+        ev = rec.get(sid)
+        return ev.value if ev is not None and ev.is_resolved else None
+
+    titles = gate.classified_titles if gate is not None else []
     brief: dict = {
         "surface": "internal",
         "config_version": settings.config_version,
+        "run_at": datetime.now().strftime("%d %b %Y, %H:%M"),
+        "input": rec.input_url,
         "entity": {
             "resolved_name": rec.resolved_name,
             "registry_id": rec.registry_id,
@@ -63,12 +73,21 @@ def build_brief(outcome: PipelineOutcome, settings: Settings) -> dict:
             "ultimate_parent": rec.ultimate_parent,
             "resolution_provisional": rec.resolution_provisional,
             "from_seed": rec.from_seed,
+            "revenue_eur": val("SCALE.01"),
+            "headcount": val("SCALE.04"),
+            "founded": val("IDENT.08"),
+            "india_profiles": val("GATE.04"),
         },
         "gate": None if gate is None else {
             "verdict": gate.verdict.value,
             "reason": gate.reason,
             "tech_present": gate.tech_present,
             "title_mix": gate.title_mix,
+            # The classified India titles behind the verdict (Section 3.3 audit).
+            "titles": [{"raw": c.raw, "class": c.title_class.value, "method": c.method}
+                       for c in titles[:120]],
+            "evidence_note": (rec.get("GATE.01").notes
+                              if rec.get("GATE.01") is not None else None),
         },
         "scores": {
             "gcc_fit": _score_block(rec.gcc_fit),

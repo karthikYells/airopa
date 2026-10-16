@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # licensed registry + people + reference data until those feeds are licensed.
     use_seed_data: bool = True
 
+    # India Market + Technology Hub (and the indicative-scale ranges) rest on the
+    # v1 India reference table, which is not yet a licensed, sourced dataset
+    # (Section 12 item 4). Until Airopa approves a source they are computed and
+    # shown internally, but never published on the public page.
+    publish_reference_scores: bool = False
+
     # --- geography (X14) ---
     target_geography: str = "NL,BE,DE,UK,Nordics,FR"
 

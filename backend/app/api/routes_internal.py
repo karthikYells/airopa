@@ -1,11 +1,8 @@
-"""Internal surface route (Section 10). Token-gated. This is the only place the
-GCC Fit score and third-party names are permitted to appear."""
+"""Internal surface route (Section 10). This is the only place the GCC Fit
+score and third-party names are permitted to appear."""
 from __future__ import annotations
 
-import hmac
-from typing import Optional
-
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.adapters.llm import LLM
@@ -22,21 +19,12 @@ class AssessRequest(BaseModel):
     url: str
 
 
-def _check_auth(token: Optional[str]) -> None:
-    """Fails closed: with no INTERNAL_API_TOKEN configured the internal surface
-    is refused, so a deployment that forgets the setting cannot leak GCC Fit."""
-    settings = get_settings()
-    if not settings.internal_api_token:
-        raise HTTPException(status_code=503,
-                            detail="internal view disabled: set INTERNAL_API_TOKEN in backend/.env")
-    if not token or not hmac.compare_digest(token.encode(), settings.internal_api_token.encode()):
-        raise HTTPException(status_code=401, detail="invalid internal password")
-
-
+# No password on the internal surface, by Airopa's decision (2026-10-17).
+# Before hosting, put the internal view behind access control (for example the
+# hosting platform's own login) — it exposes GCC Fit, which the public page
+# must never show (Section 9.3).
 @router.post("/assess")
-def assess_company(req: AssessRequest,
-                   x_internal_token: Optional[str] = Header(default=None)) -> dict:
-    _check_auth(x_internal_token)
+def assess_company(req: AssessRequest) -> dict:
     settings = get_settings()
     ok, host, reason = validate(req.url)
     if not ok:

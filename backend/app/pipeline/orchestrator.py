@@ -169,6 +169,10 @@ def run_pipeline(
             f"Provisional GCC Fit {rec.provisional_gcc_fit:.0f} below Tier-3 "
             f"threshold {settings.tier3_provisional_score_min}."
         )
+        # B and C are reference lookups with no research cost, so the internal
+        # view still shows all three scores; no Tier 3 research is spent.
+        rec.india_market = score_india_market(rec, settings)
+        rec.technology_hub = score_technology_hub(rec, settings)
         return outcome
 
     # ---------------- Tier 3: assess ----------------

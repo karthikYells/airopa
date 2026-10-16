@@ -115,6 +115,7 @@ def _apply_reference(rec: CompanyRecord, ref: SectorReference) -> None:
     rec.add(_ref("DEM.05", ref.segment_present))
     rec.add(_ref("DEM.06", ref.price_point_fit))
     rec.add(_ref("DEM.07", ref.adaptation))
+    rec.add(_ref("DEM.08", ref.tariff_position))
     rec.add(_ref("DEM.09", ref.local_mfg_preference))
     rec.add(_ref("DEM.11", ref.peers_india_revenue))
     rec.add(_ref("DEM.13", ref.downstream_growth, unit="growth"))

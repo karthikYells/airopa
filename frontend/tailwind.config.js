@@ -1,20 +1,24 @@
 /** @type {import('tailwindcss').Config} */
+// Palette taken from the spec mockups (Sections 9.9 and 10.2).
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        paper: "#FFF1E5",
-        ink: "#1A1817",
-        claret: "#990F3D",
-        teal: "#0F5156",
-        oxford: "#0D7680",
-        mute: "#66605C",
-        line: "#E6D9CE",
+        navy: "#1F3864",       // header bars, CTA, indicative scale, GCC Fit
+        orange: "#E8662A",     // peer headline, India Market
+        green: "#1E9E6A",      // Technology Hub
+        red: "#C0392B",        // IP exposure, CONFIRMED gate
+        amber: "#B7791F",      // CAUTION
+        ink: "#1B2430",        // body text
+        mute: "#5B6575",       // secondary text
+        line: "#DDE3EA",       // borders
+        canvas: "#F4F6F9",     // page background
+        panel: "#EEF2F7",      // light grey bands
       },
       fontFamily: {
-        serif: ["Georgia", "Cambria", "Times New Roman", "serif"],
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "Helvetica Neue", "Arial", "sans-serif"],
+        mono: ["JetBrains Mono", "Consolas", "monospace"],
       },
     },
   },

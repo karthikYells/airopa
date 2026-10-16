@@ -18,22 +18,38 @@ from app.scoring.common import clamp, resolved_true, resolved_value
 from app.scoring.coverage import confidence_for, coverage_for
 
 
+# Each dimension maps resolved VALUES onto the Section 8.3 calibration anchors.
+# Sector benchmarks alone cannot reach the top band where the spec requires the
+# company's own evidence (their unfilled roles, their externalised scope).
+
 def _talent(rec: CompanyRecord) -> DimensionScore:
-    pts, hit = 0.0, 0
-    for sid, p in [("TAL.02", 10), ("TAL.03", 5), ("TAL.04", 4), ("TAL.05", 6)]:
-        if resolved_value(rec, sid) not in (None, False):
-            pts += p; hit += 1
-    basis = f"{hit} talent signal(s)" if hit else "awaiting licensed talent data"
-    return DimensionScore("Talent pool depth for their stack", clamp(pts, 0, 25), 25, basis)
+    name, mx = "Talent pool depth for their stack", 25
+    depth = resolved_value(rec, "TAL.02")
+    if depth is None:
+        return DimensionScore(name, 0.0, mx, "not resolved — awaiting talent data")
+    pts = {"very_deep": 22.0, "deep": 18.0, "moderate": 11.0, "shallow": 5.0}.get(str(depth), 8.0)
+    stack = resolved_value(rec, "TAL.01")
+    why = f"India supply {str(depth).replace('_', ' ')} for the sector"
+    why += f"; their stack: {', '.join(stack)}" if stack else "; their own stack not identified"
+    return DimensionScore(name, pts, mx, why)
 
 
 def _cost(rec: CompanyRecord) -> DimensionScore:
-    pts, hit = 0.0, 0
-    for sid, p in [("COST.05", 8), ("COST.02", 5), ("COST.04", 3), ("TAL.11", 2)]:
-        if resolved_value(rec, sid) not in (None, False):
-            pts += p; hit += 1
-    basis = f"{hit} cost signal(s)" if hit else "awaiting cost base and benchmarks"
-    return DimensionScore("Cost arbitrage", clamp(pts, 0, 18), 18, basis)
+    name, mx = "Cost arbitrage", 18
+    india, home = resolved_value(rec, "TAL.09"), resolved_value(rec, "TAL.10")
+    if not isinstance(india, (int, float)) or not isinstance(home, (int, float)) or home <= 0:
+        return DimensionScore(name, 0.0, mx, "not resolved — awaiting salary benchmarks")
+    saving = (home - india) / home
+    externalised = resolved_value(rec, "COST.02") is not None
+    if saving > 0.50:
+        pts = 17.0 if externalised else 15.0   # 16-18 needs externalised scope too
+    elif saving >= 0.35:
+        pts = 12.0
+    else:
+        pts = 7.0
+    return DimensionScore(name, pts, mx,
+                          f"Indicative fully loaded saving ~{saving:.0%} (sector benchmark)"
+                          + ("" if externalised else "; no externalised scope identified"))
 
 
 def _ip(rec: CompanyRecord) -> DimensionScore:
@@ -44,6 +60,14 @@ def _ip(rec: CompanyRecord) -> DimensionScore:
         return DimensionScore("IP control and security", 0.0, 15,
                               "no meaningful IP estate — panel omitted")
     pts, bits = 0.0, []
+    ev = rec.get("IPR.30")
+    if ev is not None and ev.source_type is not None and ev.source_type.value == "reference_data":
+        # Sector IP intensity is not evidence of THIS company's IP estate: cap at
+        # the preventative band (4-8) until patents/R&D are resolved for them.
+        pts = {"high": 6.0, "moderate": 4.0}.get(str(strength), 2.0)
+        return DimensionScore("IP control and security", pts, 15,
+                              f"Sector IP intensity {strength}; company patents and "
+                              "vendor exposure not yet resolved")
     base = {"moderate": 5, "high": 8}.get(str(strength), 4)
     pts += base; bits.append(f"IP estate: {strength}")
     exposure = resolved_value(rec, "IPR.31")  # none|indirect|direct|high
@@ -57,21 +81,28 @@ def _ip(rec: CompanyRecord) -> DimensionScore:
 
 
 def _velocity(rec: CompanyRecord) -> DimensionScore:
-    pts, hit = 0.0, 0
-    for sid, p in [("TAL.06", 4), ("TAL.07", 4), ("HIRE.06", 4)]:
-        if resolved_value(rec, sid) not in (None, False):
-            pts += p; hit += 1
-    basis = f"{hit} hiring-velocity signal(s)" if hit else "fill-time data not resolved"
-    return DimensionScore("Hiring velocity", clamp(pts, 0, 12), 12, basis)
+    name, mx = "Hiring velocity", 12
+    india, home = resolved_value(rec, "TAL.06"), resolved_value(rec, "TAL.07")
+    own_open_days = resolved_value(rec, "HIRE.06")  # THEIR roles, observed over time
+    if isinstance(own_open_days, (int, float)) and own_open_days >= 90 and isinstance(india, (int, float)):
+        return DimensionScore(name, 11.0, mx,
+                              f"Their roles open ~{own_open_days:.0f} days vs ~{india} weeks in India")
+    if not isinstance(india, (int, float)) or not isinstance(home, (int, float)):
+        return DimensionScore(name, 0.0, mx, "not resolved — fill-time data missing")
+    gap = home - india
+    pts = 8.0 if gap >= 8 else 5.0 if gap >= 4 else 2.0   # no own pain evidenced: max 10
+    return DimensionScore(name, pts, mx,
+                          f"Sector fill time ~{home} weeks at home vs ~{india} in India; "
+                          "their own vacancy duration not yet observed")
 
 
 def _precedent(rec: CompanyRecord) -> DimensionScore:
-    pts, hit = 0.0, 0
-    for sid, p in [("TAL.15", 6), ("PEER.13", 3), ("PEER.30", 3)]:
-        if resolved_value(rec, sid) not in (None, False):
-            pts += p; hit += 1
-    basis = f"{hit} precedent signal(s)" if hit else "no sector delivery precedent resolved"
-    return DimensionScore("Sector delivery precedent", clamp(pts, 0, 12), 12, basis)
+    name, mx = "Sector delivery precedent", 12
+    prec = resolved_value(rec, "TAL.15")
+    if prec is None:
+        return DimensionScore(name, 0.0, mx, "not resolved")
+    pts = {"strong": 11.0, "adjacent": 8.0, "weak": 4.0, "none": 1.0}.get(str(prec), 4.0)
+    return DimensionScore(name, pts, mx, f"Sector precedent for delivery from India: {prec}")
 
 
 def _sovereignty(rec: CompanyRecord) -> DimensionScore:
@@ -83,11 +114,13 @@ def _sovereignty(rec: CompanyRecord) -> DimensionScore:
     pts, bits = 10.0, []
     if resolved_true(rec, "SOV.01"):
         pts -= 3; bits.append("data residency commitments")
-    if resolved_value(rec, "SOV.02"):
-        pts -= 3; bits.append("sector offshore restriction")
+    sov2 = resolved_value(rec, "SOV.02")
+    restriction = sov2.get("restriction") if isinstance(sov2, dict) else sov2
+    if restriction and str(restriction).lower() not in ("none", "none material"):
+        pts -= 3; bits.append(f"sector restriction: {restriction}")
     sov3 = resolved_value(rec, "SOV.03")
-    if isinstance(sov3, (int, float)):
-        pts -= min(4, 4 * sov3); bits.append("defence/sovereign scope")
+    if isinstance(sov3, (int, float)) and sov3 >= 0.10:
+        pts -= min(4, 4 * sov3); bits.append(f"defence/sovereign scope ~{sov3:.0%}")
     if resolved_true(rec, "SOV.07"):
         pts -= 2; bits.append("customer consent required")
     basis = ", ".join(bits) if bits else "no material constraints"
@@ -95,12 +128,21 @@ def _sovereignty(rec: CompanyRecord) -> DimensionScore:
 
 
 def _location(rec: CompanyRecord) -> DimensionScore:
-    pts, hit = 0.0, 0
-    for sid, p in [("TAL.12", 4), ("TAL.13", 2), ("TAL.16", 2)]:
-        if resolved_value(rec, sid) not in (None, False):
-            pts += p; hit += 1
-    basis = f"{hit} location signal(s)" if hit else "no city recommendation resolved"
-    return DimensionScore("Location and infrastructure fit", clamp(pts, 0, 8), 8, basis)
+    name, mx = "Location and infrastructure fit", 8
+    cities, attrition = resolved_value(rec, "TAL.12"), resolved_value(rec, "TAL.08")
+    if not cities:
+        return DimensionScore(name, 0.0, mx, "no city shortlist resolved")
+    has_footprint = resolved_value(rec, "GATE.01") is True
+    if isinstance(attrition, (int, float)) and attrition <= 0.15 and has_footprint:
+        pts = 7.0      # 7-8: clear city, acceptable attrition, existing footprint
+    elif isinstance(attrition, (int, float)) and attrition <= 0.18:
+        pts = 5.0      # 4-6: defensible city with a trade-off
+    else:
+        pts = 4.0
+    why = f"Candidate cities {', '.join(cities[:3])}"
+    if isinstance(attrition, (int, float)):
+        why += f"; attrition ~{attrition:.0%}"
+    return DimensionScore(name, pts, mx, why)
 
 
 def score_technology_hub(rec: CompanyRecord, settings) -> ScoreResult:

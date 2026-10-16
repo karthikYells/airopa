@@ -2,6 +2,7 @@
 GCC Fit score and third-party names are permitted to appear."""
 from __future__ import annotations
 
+import hmac
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException
@@ -22,11 +23,14 @@ class AssessRequest(BaseModel):
 
 
 def _check_auth(token: Optional[str]) -> None:
+    """Fails closed: with no INTERNAL_API_TOKEN configured the internal surface
+    is refused, so a deployment that forgets the setting cannot leak GCC Fit."""
     settings = get_settings()
     if not settings.internal_api_token:
-        return  # disabled for local dev
-    if token != settings.internal_api_token:
-        raise HTTPException(status_code=401, detail="invalid internal token")
+        raise HTTPException(status_code=503,
+                            detail="internal view disabled: set INTERNAL_API_TOKEN in backend/.env")
+    if not token or not hmac.compare_digest(token.encode(), settings.internal_api_token.encode()):
+        raise HTTPException(status_code=401, detail="invalid internal password")
 
 
 @router.post("/assess")

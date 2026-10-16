@@ -14,15 +14,17 @@ export async function scoreCompany(url: string): Promise<Snapshot> {
   return res.json();
 }
 
-export async function assessCompany(url: string, token?: string): Promise<InternalBrief> {
+export async function assessCompany(url: string, token: string): Promise<InternalBrief> {
   const res = await fetch(`${BASE}/api/assess`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(token ? { "x-internal-token": token } : {}),
+      "x-internal-token": token,
     },
     body: JSON.stringify({ url }),
   });
+  if (res.status === 401) throw new Error("Wrong password.");
+  if (res.status === 503) throw new Error("Internal view is disabled: set INTERNAL_API_TOKEN in backend/.env.");
   if (!res.ok) throw new Error(`Request failed (${res.status})`);
   return res.json();
 }

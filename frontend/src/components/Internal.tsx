@@ -6,9 +6,19 @@ const bandColor = (band: string) =>
   band === "Very strong" ? "#0D7680" : band === "Strong" ? "#0F5156" :
   band === "Moderate" ? "#B86B00" : "#990F3D";
 
+// Remembered for this browser tab only, so the password is not retyped per run
+// and does not outlive the tab.
+const TOKEN_KEY = "airopa.internalToken";
+const readToken = () => {
+  try { return sessionStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; }
+};
+const saveToken = (t: string) => {
+  try { sessionStorage.setItem(TOKEN_KEY, t); } catch { /* storage blocked */ }
+};
+
 export function InternalView() {
   const [url, setUrl] = useState("");
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(readToken);
   const [brief, setBrief] = useState<InternalBrief | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +27,7 @@ export function InternalView() {
     setLoading(true);
     setError(null);
     try {
-      setBrief(await assessCompany(url.trim(), token || undefined));
+      setBrief(await assessCompany(url.trim(), token));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -43,14 +53,17 @@ export function InternalView() {
           className="flex-1 rounded-md border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ink"
         />
         <input
+          type="password"
+          autoComplete="current-password"
           value={token}
-          onChange={(e) => setToken(e.target.value)}
-          placeholder="internal token (if set)"
+          onChange={(e) => { setToken(e.target.value); saveToken(e.target.value); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && url.trim() && token) run(); }}
+          placeholder="password"
           className="rounded-md border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ink"
         />
         <button
           onClick={run}
-          disabled={loading || !url.trim()}
+          disabled={loading || !url.trim() || !token}
           className="rounded-md bg-ink px-6 py-3 font-semibold text-paper disabled:opacity-60"
         >
           {loading ? "Assessing…" : "Assess"}

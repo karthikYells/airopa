@@ -102,9 +102,14 @@ def _fit(rec, d):
     adapt_txt = {"minimal": "products sell with minimal adaptation",
                  "moderate": "products usually need a local variant",
                  "heavy": "products need substantial adaptation"}
-    out = (f"Buyers like yours exist in India at scale. {price_txt.get(str(price), '')}, "
-           f"and {adapt_txt.get(str(adapt), 'adaptation needs are unclear')}.")
-    if not _top(d, 17):
+    parts = [x for x in (price_txt.get(str(price)), adapt_txt.get(str(adapt))) if x]
+    out = "Buyers like yours exist in India at scale."
+    if parts:
+        tail = " and ".join(parts) if len(parts) == 2 else parts[0]
+        out += " " + tail[0].upper() + tail[1:] + "."
+    if not parts:
+        out += " How well your price points and products fit Indian buyers is not yet evidenced, which holds this score down."
+    elif not _top(d, 17):
         out += " That need for a variant or price tier keeps this below the top band."
     return out + " Which of your product lines translate is tested in the full case."
 

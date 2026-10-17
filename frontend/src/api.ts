@@ -51,7 +51,7 @@ export async function copyToNetlifyForms(fields: Record<string, string>): Promis
     await fetch("/", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ "form-name": "india-snapshot-report", ...fields }).toString(),
+      body: new URLSearchParams({ "form-name": "india-market-assessment-report", ...fields }).toString(),
     });
   } catch {
     /* not on Netlify (local dev): the engine keeps its own copy */

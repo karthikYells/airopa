@@ -111,7 +111,7 @@ def request_report(req: ReportRequest, request: Request) -> dict:
     payload = run["payload"]
 
     pdf = build_pdf(payload, recipient_name=req.name)
-    filename = f"India-Opportunity-Snapshot-{run['host']}.pdf"
+    filename = f"India-Market-Assessment-{run['host']}.pdf"
     reports_dir = Path("data/reports")
     reports_dir.mkdir(parents=True, exist_ok=True)
     (reports_dir / f"{run['id']}.pdf").write_bytes(pdf)

@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     resend_api_key: str = ""
-    public_site_url: str = "https://accessindia.nl/engines/india-snapshot/"
+    public_site_url: str = "https://accessindia.nl/engines/india-market-assessment/"
     cors_origins: str = "*"   # production: https://accessindia.nl
     # The internal view (GCC Fit) has no password by Airopa decision, so it is
     # switched off on the public deployment and used locally only.

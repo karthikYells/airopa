@@ -87,8 +87,8 @@ def test_internal_view_can_be_switched_off(monkeypatch):
 def test_email_is_branded_and_escapes_visitor_input():
     from app.reports.email import build_email
     subject, text, html = build_email(PAYLOAD, "<script>x</script>", "CFO / Finance",
-                                      "https://accessindia.nl/engines/india-snapshot/?company=example.de")
-    assert subject == "Your India Opportunity Snapshot: Example GmbH"
+                                      "https://accessindia.nl/engines/india-market-assessment/?company=example.de")
+    assert subject == "Your India Market Assessment: Example GmbH"
     assert "<script>" not in html and "&lt;script&gt;" in html
     assert "Access India" in html and "GCC Fit" not in html
 

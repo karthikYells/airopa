@@ -1,13 +1,13 @@
-# Putting the India Opportunity Snapshot on accessindia.nl
+# Putting the India Market Assessment on accessindia.nl
 
-The page becomes a new engine at **accessindia.nl/engines/india-snapshot/**, next
+The page becomes a new engine at **accessindia.nl/engines/india-market-assessment/**, next
 to the GCC Business Case engine, with the same look, the same email rules and
 the same lead flow.
 
 ## How it fits together
 
 ```
-visitor ── accessindia.nl/engines/india-snapshot/   (static page, on Netlify with the rest of the site)
+visitor ── accessindia.nl/engines/india-market-assessment/   (static page, on Netlify with the rest of the site)
               │  POST /api/score, /api/report  (direct, CORS limited to accessindia.nl)
               ▼
           Google Cloud Run, europe-west1 (Belgium)  (this Python engine; free tier)
@@ -22,7 +22,7 @@ allowed to run. So it runs on Cloud Run and the page calls it directly.
 
 **Cloud Run keeps no files between restarts** (it stops when idle, which is what
 keeps it free). So:
-- every lead is kept in **Netlify Forms** (form `india-snapshot-report`, which
+- every lead is kept in **Netlify Forms** (form `india-market-assessment-report`, which
   notifies connect@airopa.co) and connect@airopa.co gets a copy of every report;
 - the page carries a **signed copy** of the snapshot, so "email me the report"
   works even if the engine restarted in between;
@@ -47,16 +47,16 @@ Deploy (from the repository root, with the Google Cloud CLI installed and
 ```bash
 gcloud config set project accessindia-engine
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
-gcloud run deploy india-snapshot --source backend --region europe-west1 \
+gcloud run deploy india-market-assessment --source backend --region europe-west1 \
   --allow-unauthenticated --memory 1Gi --cpu 1 --timeout 300 \
   --max-instances 2 --concurrency 10 \
-  --set-env-vars "CORS_ORIGINS=https://accessindia.nl,ENABLE_INTERNAL=false,PUBLISH_REFERENCE_SCORES=false,MAIL_PROVIDER=graph,MAIL_NOTIFY=connect@airopa.co,PUBLIC_SITE_URL=https://accessindia.nl/engines/india-snapshot/"
+  --set-env-vars "CORS_ORIGINS=https://accessindia.nl,ENABLE_INTERNAL=false,PUBLISH_REFERENCE_SCORES=false,MAIL_PROVIDER=graph,MAIL_NOTIFY=connect@airopa.co,PUBLIC_SITE_URL=https://accessindia.nl/engines/india-market-assessment/"
 ```
 
-The command prints the engine's address, `https://india-snapshot-….run.app`.
+The command prints the engine's address, `https://india-market-assessment-….run.app`.
 `backend/.gcloudignore` keeps `.env`, local data and tests out of the upload.
 
-Then add the **secrets** in the Cloud Run console (india-snapshot > Edit & deploy
+Then add the **secrets** in the Cloud Run console (india-market-assessment > Edit & deploy
 new revision > Variables & secrets), never in git:
 
 | Variable | Value |
@@ -74,8 +74,8 @@ custom domains, supported in europe-west1) and rebuild the page with that addres
 ```bash
 cd frontend
 npm install
-VITE_PUBLIC_ONLY=true VITE_BASE=/engines/india-snapshot/ \
-VITE_API_BASE=https://india-snapshot-XXXX.run.app npm run build
+VITE_PUBLIC_ONLY=true VITE_BASE=/engines/india-market-assessment/ \
+VITE_API_BASE=https://india-market-assessment-XXXX.run.app npm run build
 ```
 
 Use the address Cloud Run printed in step 1 for `VITE_API_BASE`.
@@ -84,8 +84,8 @@ On Windows in Git Bash, put `MSYS_NO_PATHCONV=1` in front of that command, or
 Git Bash rewrites `/engines/...` into a Windows path and the page loads blank.
 
 Copy everything in `frontend/dist/` into the site repository at
-`engines/india-snapshot/`, add a card for it on `/engines/`, and deploy the site
-as usual. Netlify detects the `india-snapshot-report` form on deploy; turn on its
+`engines/india-market-assessment/`, add a card for it on `/engines/`, and deploy the site
+as usual. Netlify detects the `india-market-assessment-report` form on deploy; turn on its
 email notification to connect@airopa.co in Netlify > Forms.
 
 The page uses the site's own `/fonts/fonts.css`, header, footer and privacy link.

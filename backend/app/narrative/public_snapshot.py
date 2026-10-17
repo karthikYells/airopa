@@ -188,7 +188,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
         "mode": mode.value,
         "company": _company_facts(rec),
         "source_count": len(sources),
-        "disclaimer": ("This snapshot was generated from public sources: company "
+        "disclaimer": ("This assessment was generated from public sources: company "
                        "websites, corporate registries and people data"
                        + (f", {len(sources)} source{'s' if len(sources) != 1 else ''}. "
                           if sources else ". ")
@@ -213,7 +213,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
         verified = [sid for sid, ev in rec.signals.items() if ev.is_resolved]
         base["verified_count"] = len(verified)
         base["message"] = ("We could not verify enough about this company from "
-                            "public sources to publish a snapshot.")
+                            "public sources to publish an assessment.")
         base["ask"] = ["Latest revenue and headcount",
                        "Whether you operate any entity in India",
                        "Your primary ERP and core systems"]

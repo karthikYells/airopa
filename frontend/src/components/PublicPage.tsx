@@ -5,7 +5,7 @@ import {
   DomainInput, Rich, Scanning, SiteFooter, SiteHeader, bandStyle, companyFromUrl, setCompanyInUrl,
 } from "./ui";
 
-/** The public India Opportunity Snapshot, an engine page on accessindia.nl.
+/** The public India Market Assessment, an engine page on accessindia.nl.
  *  Content follows the Section 9.9 mockup; styling follows the site. */
 export function PublicPage() {
   const [data, setData] = useState<Snapshot | null>(null);
@@ -39,7 +39,7 @@ export function PublicPage() {
   return (
     <>
       <SiteHeader
-        crumb="India Opportunity Snapshot"
+        crumb="India Market Assessment"
         title="Is your company ready for an India capability centre,"
         accent="and what do your peers already know?"
         intro="Enter your company website. From public sources alone, the engine checks your India presence, reads what your own company is signalling, and shows what a full business case would contain. Free, no login. Get the report as a PDF in your inbox."
@@ -241,7 +241,7 @@ function EvidenceCard({ p }: { p: OwnEvidence }) {
 function Withheld({ items }: { items: string[] }) {
   return (
     <section className="rounded-panel border border-dashed border-mute/40 bg-white p-6">
-      <h3 className="text-[21px] font-bold text-ink">What this snapshot deliberately does not show you</h3>
+      <h3 className="text-[21px] font-bold text-ink">What this assessment deliberately does not show you</h3>
       <p className="mt-1 text-sm text-mute">
         These need judgement and verification, not automation. They are what the full business case
         contains, built by Airopa Global in two weeks, at no obligation.
@@ -331,9 +331,9 @@ function ReportForm({ data }: { data: Snapshot }) {
   return (
     <section className="rounded-panel border border-line border-l-4 border-l-orange bg-white p-6">
       <div className="font-mono text-[12.5px] uppercase tracking-[0.12em] text-orange-ink">Free report</div>
-      <h3 className="mt-1 text-[21px] font-bold text-ink">Get this snapshot in your inbox</h3>
+      <h3 className="mt-1 text-[21px] font-bold text-ink">Get this assessment in your inbox</h3>
       <p className="mt-1 text-[15px] text-mute">
-        A PDF of your India Opportunity Snapshot, with what we found about your company and what the full
+        A PDF of your India Market Assessment, with what we found about your company and what the full
         business case would add. Ready to forward to your board.
       </p>
       {done ? (
@@ -398,7 +398,7 @@ function Insufficient({ data }: { data: Snapshot }) {
       <h3 className="text-[21px] font-bold text-ink">{data.message}</h3>
       <p className="mt-2 text-[15px] text-mute">
         We publish only what we can verify, and found {data.verified_count} verified data points, not enough
-        for an honest snapshot. Tell us a few facts and we complete the picture for you.
+        for an honest assessment. Tell us a few facts and we complete the picture for you.
       </p>
       {data.ask && (
         <ul className="mt-3 space-y-1.5 text-[15px] text-ink">

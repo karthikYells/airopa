@@ -63,7 +63,7 @@ def _header(canvas, doc):
                       h - 13 * mm, "Netherlands")
     canvas.setFillColor(colors.HexColor("#A3A5AD"))
     canvas.setFont("Helvetica", 8)
-    canvas.drawRightString(w - 18 * mm, h - 11 * mm, "India Opportunity Snapshot")
+    canvas.drawRightString(w - 18 * mm, h - 11 * mm, "India Market Assessment")
     canvas.drawRightString(w - 18 * mm, h - 15.5 * mm, "with founding partner Airopa Global")
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
@@ -87,11 +87,11 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
                             topMargin=30 * mm, bottomMargin=18 * mm,
-                            title="India Opportunity Snapshot", author="Access India Netherlands")
+                            title="India Market Assessment", author="Access India Netherlands")
     c = payload.get("company") or {}
     story: list = []
 
-    story.append(Paragraph("INDIA OPPORTUNITY SNAPSHOT", _S["eyebrow"]))
+    story.append(Paragraph("INDIA MARKET ASSESSMENT", _S["eyebrow"]))
     story.append(Paragraph(_esc(c.get("name") or c.get("input") or ""), _S["h1"]))
     facts = [c.get(k) for k in ("sector", "country", "revenue", "headcount") if c.get(k)]
     story.append(Paragraph(_esc("  ·  ".join(facts)), _S["muted"]))
@@ -155,7 +155,7 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
 
     withheld = payload.get("withheld") or []
     if withheld:
-        story.append(Paragraph("What this snapshot deliberately does not show you", _S["h2"]))
+        story.append(Paragraph("What this assessment deliberately does not show you", _S["h2"]))
         story.append(Paragraph("These need judgement and verification, not automation. They "
                                "are what the full business case contains.", _S["muted"]))
         story += [Paragraph(_esc(w), _S["bullet"], bulletText="+") for w in withheld]

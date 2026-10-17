@@ -18,8 +18,8 @@ def build_email(payload: dict, name: str, role: str, link: str) -> tuple[str, st
     evidence = payload.get("own_evidence") or []
     first = [b.replace("**", "") for p in evidence for b in p.get("bullets", [])][:3]
 
-    subject = f"Your India Opportunity Snapshot: {company}"
-    text = (f"Dear {name},\n\nAttached is the India Opportunity Snapshot for {company}, "
+    subject = f"Your India Market Assessment: {company}"
+    text = (f"Dear {name},\n\nAttached is the India Market Assessment for {company}, "
             f"built from public sources. {status}\n\nReopen it any time: {link}\n\n"
             "Want the full business case, built against your own estate and named peer "
             "group in two weeks at no obligation? Simply reply to this email.\n\n"
@@ -31,22 +31,22 @@ def build_email(payload: dict, name: str, role: str, link: str) -> tuple[str, st
 <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#FFFFFF;">
   <tr><td style="background:{C['band']};padding:22px 28px;{FONT}">
     <div style="font-size:18px;font-weight:700;color:#F3F2EF;">Access India <span style="color:{C['accent']};">Netherlands</span></div>
-    <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:{C['accent']};margin-top:14px;">Engines · India Opportunity Snapshot</div>
+    <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:{C['accent']};margin-top:14px;">Engines · India Market Assessment</div>
     <div style="font-size:24px;font-weight:700;color:#F3F2EF;margin-top:6px;">{escape(company)}</div>
   </td></tr>
   <tr><td style="padding:24px 28px;{FONT}color:{C['fg']};font-size:15px;line-height:1.55;">
     <p style="margin:0 0 12px;">Dear {escape(name)},</p>
-    <p style="margin:0 0 12px;">Thank you for using the India Opportunity Snapshot. Here is what public sources show for {escape(company)}.</p>
+    <p style="margin:0 0 12px;">Thank you for using the India Market Assessment. Here is what public sources show for {escape(company)}.</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;border-left:4px solid {C['accent']};background:{C['soft']};"><tr><td style="padding:16px 18px;{FONT}">
       <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:{C['ink']};">Your India status</div>
       <div style="font-size:16px;font-weight:600;color:{C['fg']};margin-top:4px;">{escape(status)}</div>
       {f'<ul style="margin:10px 0 0;padding-left:18px;font-size:14px;color:{C["fg"]};">{bullets}</ul>' if bullets else ''}
     </td></tr></table>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;border:1px solid {C['line']};"><tr><td style="padding:14px 16px;{FONT}font-size:14px;color:{C['fg']};">
-      <strong>Your snapshot is attached as a PDF</strong>, ready to forward to your board, together with what the full business case would add.
+      <strong>Your assessment is attached as a PDF</strong>, ready to forward to your board, together with what the full business case would add.
     </td></tr></table>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px;"><tr>
-      <td style="background:{C['accent']};border-radius:999px;"><a href="{escape(link)}" style="{FONT}display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#16120D;text-decoration:none;">Open your snapshot</a></td>
+      <td style="background:{C['accent']};border-radius:999px;"><a href="{escape(link)}" style="{FONT}display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#16120D;text-decoration:none;">Open your assessment</a></td>
     </tr></table>
     <p style="margin:26px 0 0;padding-top:18px;border-top:1px solid {C['line']};">Want the full business case? Our GCC partner, Airopa Global, builds it against your own estate, salary bands and named peer group in two weeks, at no obligation. Simply reply to this email.</p>
     <p style="margin:18px 0 0;font-size:12.5px;color:{C['muted']};">Compiled from public sources. Where something could not be verified it was left out rather than estimated. Nothing here is a statement about the conduct of any third party.</p>

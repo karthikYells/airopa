@@ -56,7 +56,11 @@ class Settings(BaseSettings):
     # v1 India reference table, which is not yet a licensed, sourced dataset
     # (Section 12 item 4). Until Airopa approves a source they are computed and
     # shown internally, but never published on the public page.
-    publish_reference_scores: bool = False
+    publish_reference_scores: bool = False   # Technology Hub + indicative scale
+    # Market access view on the public page (Airopa decision 2026-10-17): the
+    # India Market Opportunity score and its six dimensions in words, labelled
+    # indicative and sector-level. Raw reference figures stay internal.
+    publish_market_insights: bool = True
 
     # --- public surface: abuse controls and caching (Section 9.7) ---
     public_score_limit_per_hour: int = 10    # snapshots per IP per hour

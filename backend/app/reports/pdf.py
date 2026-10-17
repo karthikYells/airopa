@@ -101,6 +101,28 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
     story.append(Paragraph(prepared + f"  ·  {_esc(c.get('input') or '')}", _S["muted"]))
     story.append(Spacer(1, 8))
 
+    market = payload.get("market")
+    if market:
+        story.append(Paragraph("India as a market for what you sell", _S["h2"]))
+        head = Table([[Paragraph(f'{market["score"]}', _S["big"]),
+                       Paragraph(f'<b>{_esc(market["headline"])}</b><br/>'
+                                 f'<font color="#5C5E66">India Market Opportunity: '
+                                 f'{_esc(market["band"])}, out of 100.</font>', _S["body"])]],
+                     colWidths=[30 * mm, None])
+        head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                                  ("LINEABOVE", (0, 0), (-1, 0), 2, ACCENT),
+                                  ("TOPPADDING", (0, 0), (-1, -1), 8)]))
+        rows = [[Paragraph(f'<b>{_esc(d["name"])}</b>', _S["body"]),
+                 Paragraph(f'<b>{_esc(d["level"])}</b>', _S["body"]),
+                 Paragraph(_esc(d["insight"]), _S["body"])] for d in market["dimensions"]]
+        dims = Table(rows, colWidths=[42 * mm, 24 * mm, None])
+        dims.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                  ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
+                                  ("TOPPADDING", (0, 0), (-1, -1), 4),
+                                  ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
+        story += [head, Spacer(1, 4), dims, Paragraph(_esc(market["basis"]), _S["muted"]),
+                  Spacer(1, 8), Paragraph("Your India presence today", _S["h2"])]
+
     peer = payload.get("peer_headline")
     if peer:
         t = Table([[Paragraph(f'{peer["with_centre"]} of {peer["total"]}', _S["big"]),
@@ -125,12 +147,11 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
     if payload.get("message"):
         story.append(Paragraph(_esc(payload["message"]), _S["body"]))
 
-    im, th = payload.get("india_market"), payload.get("technology_hub")
-    if im or th:
-        cells = [_score_cell(im, ACCENT) if im else "", _score_cell(th, GREEN) if th else ""]
-        t = Table([cells], colWidths=["50%", "50%"])
+    th = payload.get("technology_hub")
+    if th:  # published only once the talent data source is approved
+        t = Table([[_score_cell(th, GREEN)]], colWidths=["60%"])
         t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
-                               ("BOX", (0, 0), (0, 0), 0.5, LINE), ("BOX", (1, 0), (1, 0), 0.5, LINE),
+                               ("BOX", (0, 0), (0, 0), 0.5, LINE),
                                ("LEFTPADDING", (0, 0), (-1, -1), 8)]))
         story += [t, Spacer(1, 6)]
 

@@ -17,13 +17,22 @@ def build_email(payload: dict, name: str, role: str, link: str) -> tuple[str, st
     status = payload.get("india_status") or ""
     evidence = payload.get("own_evidence") or []
     first = [b.replace("**", "") for p in evidence for b in p.get("bullets", [])][:3]
+    market = payload.get("market")
 
     subject = f"Your India Market Assessment: {company}"
+    market_line = (f"{market['headline']} India Market Opportunity: {market['band']} "
+                   f"({market['score']}/100, indicative). " if market else "")
     text = (f"Dear {name},\n\nAttached is the India Market Assessment for {company}, "
-            f"built from public sources. {status}\n\nReopen it any time: {link}\n\n"
-            "Want the full business case, built against your own estate and named peer "
-            "group in two weeks at no obligation? Simply reply to this email.\n\n"
+            f"built from public sources. {market_line}{status}\n\nReopen it any time: {link}\n\n"
+            "Want the full India business case, for selling there, building there or both, "
+            "in two weeks at no obligation? Simply reply to this email.\n\n"
             "Access India Netherlands, with founding partner Airopa Global")
+    market_html = "" if not market else f"""
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;border:1px solid {C['line']};"><tr><td style="padding:16px 18px;{FONT}">
+      <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:{C['ink']};">India as a market for what you sell</div>
+      <div style="font-size:26px;font-weight:700;color:{C['accent']};margin-top:4px;">{market['score']}<span style="font-size:14px;color:{C['muted']};font-weight:400;"> / 100 · {escape(market['band'])} · indicative</span></div>
+      <div style="font-size:15px;font-weight:600;color:{C['fg']};margin-top:4px;">{escape(market['headline'])}</div>
+    </td></tr></table>"""
 
     bullets = "".join(f'<li style="margin:3px 0;">{escape(b)}</li>' for b in first)
     html = f"""<!doctype html><html><body style="margin:0;background:#F6F6F4;">
@@ -36,7 +45,7 @@ def build_email(payload: dict, name: str, role: str, link: str) -> tuple[str, st
   </td></tr>
   <tr><td style="padding:24px 28px;{FONT}color:{C['fg']};font-size:15px;line-height:1.55;">
     <p style="margin:0 0 12px;">Dear {escape(name)},</p>
-    <p style="margin:0 0 12px;">Thank you for using the India Market Assessment. Here is what public sources show for {escape(company)}.</p>
+    <p style="margin:0 0 12px;">Thank you for using the India Market Assessment. Here is what public sources show for {escape(company)}.</p>{market_html}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;border-left:4px solid {C['accent']};background:{C['soft']};"><tr><td style="padding:16px 18px;{FONT}">
       <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:{C['ink']};">Your India status</div>
       <div style="font-size:16px;font-weight:600;color:{C['fg']};margin-top:4px;">{escape(status)}</div>
@@ -48,7 +57,7 @@ def build_email(payload: dict, name: str, role: str, link: str) -> tuple[str, st
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px;"><tr>
       <td style="background:{C['accent']};border-radius:999px;"><a href="{escape(link)}" style="{FONT}display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#16120D;text-decoration:none;">Open your assessment</a></td>
     </tr></table>
-    <p style="margin:26px 0 0;padding-top:18px;border-top:1px solid {C['line']};">Want the full business case? Our GCC partner, Airopa Global, builds it against your own estate, salary bands and named peer group in two weeks, at no obligation. Simply reply to this email.</p>
+    <p style="margin:26px 0 0;padding-top:18px;border-top:1px solid {C['line']};">Want the full India business case? Our partner Airopa Global builds it in two weeks, for selling into India, building there, or both: against your own products, numbers and named peer group, at no obligation. Simply reply to this email.</p>
     <p style="margin:18px 0 0;font-size:12.5px;color:{C['muted']};">Compiled from public sources. Where something could not be verified it was left out rather than estimated. Nothing here is a statement about the conduct of any third party.</p>
   </td></tr>
   <tr><td style="background:{C['band']};padding:16px 28px;{FONT}font-size:12px;color:#A3A5AD;">

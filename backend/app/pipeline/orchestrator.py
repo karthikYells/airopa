@@ -142,6 +142,11 @@ def run_pipeline(
         outcome.stopped_at = "Tier 1"
         outcome.terminal_code = terminal.code
         outcome.terminal_disposition = terminal.disposition.value
+        # The engine is market-access first: India as a market for what they
+        # sell matters even when a capability centre already exists. It is a
+        # reference lookup, so no Tier 3 research is spent.
+        if rec.sector:
+            rec.india_market = score_india_market(rec, settings)
         return outcome
 
     # ---------------- Tier 2: triage ----------------

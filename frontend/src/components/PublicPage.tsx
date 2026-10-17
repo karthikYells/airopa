@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { copyToNetlifyForms, getExamples, requestReport, scoreCompany } from "../api";
-import type { OwnEvidence, PeerHeadline, ScoreBlock, Snapshot } from "../types";
+import type { Market, OwnEvidence, PeerHeadline, ScoreBlock, Snapshot } from "../types";
 import {
   DomainInput, Rich, Scanning, SiteFooter, SiteHeader, bandStyle, companyFromUrl, setCompanyInUrl,
 } from "./ui";
@@ -40,9 +40,9 @@ export function PublicPage() {
     <>
       <SiteHeader
         crumb="India Market Assessment"
-        title="Is your company ready for an India capability centre,"
-        accent="and what do your peers already know?"
-        intro="Enter your company website. From public sources alone, the engine checks your India presence, reads what your own company is signalling, and shows what a full business case would contain. Free, no login. Get the report as a PDF in your inbox."
+        title="Is India a market for what you sell,"
+        accent="and are you ready to win it?"
+        intro="Enter your company website. From public sources, see how India's demand, policy and route to market line up with what your company sells, and where you stand in India today. Free, no login. Get the report as a PDF in your inbox."
       />
       <main className="mx-auto max-w-[1180px] space-y-6 px-4 pt-10 sm:px-10">
         <DomainInput
@@ -80,40 +80,46 @@ export function PublicPage() {
 
 function SnapshotBody({ data }: { data: Snapshot }) {
   const full = data.mode === "STANDARD" || data.mode === "EXISTING_CENTRE";
-  const hasScores = !!(data.india_market || data.technology_hub || data.indicative_scale);
+  const hasScores = !!(data.technology_hub || data.indicative_scale);
   return (
     <>
-      {data.peer_headline && <PeerCard peer={data.peer_headline} />}
-
       {data.company && <CompanyBar data={data} />}
-
-      {data.message && data.mode !== "INSUFFICIENT_DATA" && data.mode !== "REJECTED" && (
-        <p className="rounded-panel border-l-4 border-orange bg-orange-soft px-5 py-3 text-[15px] text-ink">
-          {data.message}
-        </p>
-      )}
 
       {data.mode === "REJECTED" && <Notice title="Please enter a company website" body={data.message} />}
       {data.mode === "EXCLUDED" && data.content && <Notice title={data.content.headline} body={data.content.body} />}
       {data.mode === "INSUFFICIENT_DATA" && <Insufficient data={data} />}
 
+      {/* 1. Selling into India */}
+      {data.market && <MarketSection m={data.market} />}
+
+      {/* 2. Your India presence today */}
+      {(data.india_status || data.peer_headline || (full && data.own_evidence?.length)) && (
+        <section className="space-y-5">
+          <SectionLabel>Your India presence today</SectionLabel>
+          {data.india_status && (
+            <p className="text-[clamp(20px,2.4vw,26px)] font-display font-bold leading-snug text-ink">
+              {data.india_status}
+            </p>
+          )}
+          {data.message && data.mode !== "INSUFFICIENT_DATA" && data.mode !== "REJECTED" && (
+            <p className="rounded-panel border-l-4 border-orange bg-orange-soft px-5 py-3 text-[15px] text-ink">
+              {data.message}
+            </p>
+          )}
+          {data.peer_headline && <PeerCard peer={data.peer_headline} />}
+          {full && data.own_evidence && data.own_evidence.length > 0 && (
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+              {data.own_evidence.map((p) => <EvidenceCard key={p.title} p={p} />)}
+            </div>
+          )}
+        </section>
+      )}
+
       {hasScores && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {data.india_market && <ScoreCard s={data.india_market} accent="orange" />}
           {data.technology_hub && <ScoreCard s={data.technology_hub} accent="green" />}
           {data.indicative_scale && <ScaleCard scale={data.indicative_scale} />}
         </div>
-      )}
-
-      {full && data.own_evidence && data.own_evidence.length > 0 && (
-        <section>
-          <h2 className="font-mono text-[12.5px] font-medium uppercase tracking-[0.12em] text-orange-ink">
-            What we found when we looked at your company specifically
-          </h2>
-          <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-3">
-            {data.own_evidence.map((p) => <EvidenceCard key={p.title} p={p} />)}
-          </div>
-        </section>
       )}
 
       {data.run_id && data.mode !== "REJECTED" && data.mode !== "EXCLUDED" && (
@@ -127,6 +133,56 @@ function SnapshotBody({ data }: { data: Snapshot }) {
         <p className="border-t border-line pt-4 text-[13px] leading-5 text-mute">{data.disclaimer}</p>
       )}
     </>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="font-mono text-[12.5px] font-medium uppercase tracking-[0.12em] text-orange-ink">
+      {children}
+    </h2>
+  );
+}
+
+const levelStyle = (level: string) =>
+  level === "Very strong" ? "bg-green/10 text-green"
+    : level === "Strong" ? "bg-orange-soft text-orange-ink"
+      : level === "Moderate" ? "bg-amber/10 text-amber" : "bg-red/10 text-red";
+
+/** India as a market for what they sell: the lead block of the page. */
+function MarketSection({ m }: { m: Market }) {
+  return (
+    <section className="space-y-4">
+      <SectionLabel>India as a market for what you sell</SectionLabel>
+      <div className="rounded-panel border border-line border-l-4 border-l-orange bg-white p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+          <div className="whitespace-nowrap">
+            <span className="font-display text-6xl font-extrabold text-orange">{m.score}</span>
+            <span className="ml-1 font-mono text-sm text-mute">/ 100</span>
+          </div>
+          <div>
+            <p className="font-display text-[clamp(22px,2.6vw,30px)] font-extrabold leading-tight text-ink">{m.headline}</p>
+            <p className="mt-1 text-sm text-mute">
+              {m.label}: <strong className="text-ink">{m.band}</strong> · indicative
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+          {m.dimensions.map((d) => (
+            <div key={d.name} className="border-t border-line pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-[16px] font-bold text-ink">{d.name}</h3>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 font-mono text-[11px] uppercase ${levelStyle(d.level)}`}>
+                  {d.level}
+                </span>
+              </div>
+              <p className="mt-1 text-[15px] text-mute">{d.insight}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-5 text-xs text-mute">{m.basis}</p>
+      </div>
+    </section>
   );
 }
 
@@ -161,9 +217,6 @@ function CompanyBar({ data }: { data: Snapshot }) {
         <h2 className="text-[clamp(24px,3vw,32px)] font-extrabold tracking-tight text-ink">{c.name || c.input}</h2>
         <p className="text-[15px] text-mute">{facts.join("  ·  ")}</p>
       </div>
-      {data.india_status && (
-        <p className="text-[15px] text-ink sm:max-w-[45%] sm:text-right">{data.india_status}</p>
-      )}
     </section>
   );
 }
@@ -333,8 +386,8 @@ function ReportForm({ data }: { data: Snapshot }) {
       <div className="font-mono text-[12.5px] uppercase tracking-[0.12em] text-orange-ink">Free report</div>
       <h3 className="mt-1 text-[21px] font-bold text-ink">Get this assessment in your inbox</h3>
       <p className="mt-1 text-[15px] text-mute">
-        A PDF of your India Market Assessment, with what we found about your company and what the full
-        business case would add. Ready to forward to your board.
+        A PDF of your India Market Assessment: India as a market for what you sell, where you stand in
+        India today, and what the full business case would add. Ready to forward to your board.
       </p>
       {done ? (
         <p className="mt-5 rounded-[10px] bg-orange-soft px-4 py-3 text-[15px] text-ink" role="status">{done}</p>

@@ -12,6 +12,19 @@ export interface ScoreBlock {
   sub_dimensions: SubDimension[];
 }
 
+/** India as a market for what they sell: score and six dimensions in words,
+ *  labelled indicative and sector-level (raw figures stay in the engine). */
+export interface Market {
+  label: string;
+  question: string;
+  score: number;
+  band: string;
+  coverage: number;
+  headline: string;
+  dimensions: { name: string; level: string; insight: string }[];
+  basis: string;
+}
+
 export interface PeerHeadline {
   with_centre?: number;
   total?: number;
@@ -48,7 +61,7 @@ export interface Snapshot {
   provisional_resolution?: boolean;
   peer_headline?: PeerHeadline | null;
   india_status?: string;
-  india_market?: ScoreBlock | null;
+  market?: Market | null;
   technology_hub?: ScoreBlock | null;
   indicative_scale?: {
     first_phase_team: string;

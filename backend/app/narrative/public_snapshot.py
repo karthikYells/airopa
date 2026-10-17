@@ -54,6 +54,74 @@ def _published_score(score: ScoreResult, settings: Settings) -> dict | None:
     }
 
 
+# Plain-language market insight per dimension and strength. Words only: the
+# figures behind them are sector-level v1 reference data and stay internal.
+_INSIGHT = {
+    "Addressable demand": (
+        "India's market for your sector is large and growing fast, with demand rising downstream.",
+        "India's market for your sector is real and growing, though not yet sized for your exact category.",
+        "Little evidenced India demand for your category so far."),
+    "Product and segment fit": (
+        "Your kind of buyer exists in India at scale, and your offer fits with limited adaptation.",
+        "The buying segment exists, but a variant or price tier is likely needed.",
+        "Substantial adaptation would be needed to fit Indian buyers."),
+    "Competitive position": (
+        "Peers already earn revenue in India, and foreign entrants succeed in your category.",
+        "Peers are present and the category is contested.",
+        "A crowded field with established local players, or little evidence either way."),
+    "Policy and incentives": (
+        "Policy works for you: incentives cover your sector and foreign investment is automatic.",
+        "Policy is broadly favourable, though not specific to your sector.",
+        "Policy or tariffs make entry harder for your category."),
+    "Route to market": (
+        "A route to market exists, with established channels and short approval times.",
+        "A workable route exists, with a partner or certification path to arrange.",
+        "No clear route to market yet."),
+    "Supply chain and China plus one": (
+        "Your sector is part of the shift of supply chains into India.",
+        "Your sector is touched by the China plus one shift.",
+        "Supply-chain relocation is of limited relevance to your category."),
+}
+
+_MARKET_HEADLINE = {
+    "Very strong": "India looks like a strong market for what you sell.",
+    "Strong": "India looks like a real market for what you sell.",
+    "Moderate": "India is a market for your sector, with conditions to work through.",
+}
+
+
+def _market_insights(rec: CompanyRecord, settings: Settings) -> dict | None:
+    """Block 4 as a market-access view: the India Market Opportunity score and
+    all six dimensions in words. Labelled indicative and sector-level. Omitted
+    when coverage is below the publication floor, and when the score is Weak:
+    under 50 the spec says do not make this argument at all (Sections 8.4, 8.5)."""
+    score = rec.india_market
+    if not settings.publish_market_insights or score is None:
+        return None
+    if score.coverage < settings.publication_score_coverage_floor or score.points < 50:
+        return None
+    dims = []
+    for d in score.dimensions:
+        if d.points <= 0:
+            continue  # unresolved: say nothing rather than guess
+        level = _word_level(d.points, d.max_points)
+        texts = _INSIGHT.get(d.name)
+        idx = 0 if level in ("Very strong", "Strong") else 1 if level == "Moderate" else 2
+        dims.append({"name": d.name, "level": level, "insight": texts[idx] if texts else ""})
+    return {
+        "label": "India Market Opportunity",
+        "question": "Is India a market for what you sell, not only a place to build?",
+        "score": round(score.points),
+        "band": score.band.value,
+        "coverage": round(score.coverage * 100),
+        "headline": _MARKET_HEADLINE.get(score.band.value, ""),
+        "dimensions": dims,
+        "basis": (f"Indicative. Based on sector-level reference data for "
+                  f"{(rec.sector or 'your sector').lower()} in India, not on research into "
+                  "your own products. The full business case tests this against what you sell."),
+    }
+
+
 def _company_facts(rec: CompanyRecord) -> dict:
     """Block 1: who we resolved them to. Only resolved, sourced facts appear."""
     def val(sid):
@@ -151,15 +219,16 @@ def _own_evidence(rec: CompanyRecord) -> list[dict]:
     return panels
 
 
-# Block 8 (Section 9.8 contents). A conversion device, not an apology.
+# Block 8 (Section 9.8 contents), market access first. A conversion device,
+# not an apology.
 _WITHHELD = [
-    "Which peers run India centres, by name, and the size and function of each centre",
-    "Your vendors by name, and exactly which of your competitors they also serve",
-    "The specific roles to move first, and what must stay in Europe",
-    "A costed team model against your own salary bands",
-    "City recommendation and why, with attrition and salary data",
-    "Ownership model: employer of record, partner operated, or build and transfer",
-    "Works council sequencing and your data residency constraints",
+    "The size of India's market for your exact products, with sources",
+    "Named Indian buyers and distributors in your category",
+    "Tariff, certification and approval path for your products",
+    "Which of your peers sell or build in India, by name",
+    "Entry model: distributor, partner, own entity or capability centre",
+    "City recommendation, weighing customers, talent and cost",
+    "A costed plan against your own numbers",
     "A 100 day plan with named workstreams",
 ]
 
@@ -222,15 +291,15 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
         return base
 
     if mode is ResponseMode.SUB_SCALE:
-        base["india_market"] = _published_score(rec.india_market, settings)
+        base["market"] = _market_insights(rec, settings)
         base["message"] = ("Below the scale where an owned India centre is the "
-                            "right first step — but India may still be a market "
+                            "right first step, but India may still be a market "
                             "for what you sell.")
         base["lead_capture"] = {"type": "sector_briefing", "field": "work_email"}
         return base
 
     if mode is ResponseMode.ENTERPRISE:
-        base["india_market"] = _published_score(rec.india_market, settings)
+        base["market"] = _market_insights(rec, settings)
         base["technology_hub"] = _published_score(rec.technology_hub, settings)
         base["message"] = ("At your scale this deserves a direct conversation "
                             "rather than a form.")
@@ -241,7 +310,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
     # STANDARD and EXISTING_CENTRE share the nine-block body.
     base["peer_headline"] = _peer_headline(rec, seed_cohort)       # block 2
     base["india_status"] = _india_status_line(rec)                 # block 3
-    base["india_market"] = _published_score(rec.india_market, settings)      # block 4
+    base["market"] = _market_insights(rec, settings)               # block 4, market access
     base["technology_hub"] = _published_score(rec.technology_hub, settings)  # block 5
     if settings.publish_reference_scores:                          # block 6, ranges only
         base["indicative_scale"] = {
@@ -256,17 +325,18 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
     base["lead_capture"] = {                                       # block 9
         "type": "business_case",
         "field": "work_email",
-        "title": "Get the full business case in two weeks",
-        "offer": ("We build it against your actual estate, your salary bands and "
-                  "your named peer group. No obligation, and it is yours whether "
-                  "or not you work with us."),
+        "title": "Get your full India business case in two weeks",
+        "offer": ("Selling into India, building there, or both: we build it against "
+                  "your own products, your numbers and your named peer group. No "
+                  "obligation, and it is yours whether or not you work with us."),
     }
 
     if mode is ResponseMode.EXISTING_CENTRE:
-        # Benchmark framing — never 'disqualified', never 'nothing to gain'.
-        base["message"] = ("Your existing India centre, benchmarked against your "
-                           "peers on scale and function mix — and where the gap is.")
+        # Benchmark framing: never 'disqualified', never 'nothing to gain'.
+        base["message"] = ("You already have a technology presence in India. The full "
+                           "picture shows how your centre compares with your peers, and "
+                           "how far India could go as a market for what you sell.")
         base["lead_capture"]["offer"] = (
-            "A scale up and transformation review of your existing India centre, "
-            "built by Airopa in two weeks, at no obligation.")
+            "A review of your India centre against your peers, and of India as a "
+            "market for your products, built by Airopa in two weeks, at no obligation.")
     return base

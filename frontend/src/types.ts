@@ -82,6 +82,8 @@ export interface Snapshot {
   provisional_resolution?: boolean;
   peer_headline?: PeerHeadline | null;
   india_status?: string;
+  // The short version: a sharp summary built only from facts on the page.
+  summary?: { headline: string; body: string; close: string } | null;
   market?: Market | null;
   technology_hub?: HubCard | null;
   indicative_scale?: {

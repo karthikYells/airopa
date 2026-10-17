@@ -17,6 +17,7 @@ import re
 
 from app.config import Settings, get_settings
 from app.narrative.reasoning import indicative_scale, reason_for
+from app.narrative.summary import build_summary
 from app.data.records import (
     CompanyRecord, GateVerdict, ResponseMode, ScoreResult,
 )
@@ -484,7 +485,11 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
         # same case for the full assessment, framed around selling into India.
         base["peer_headline"] = _peer_headline(rec, None)
         base["india_status"] = _india_status_line(rec)
+        base["technology_hub"] = _tech_hub_card(rec, settings)
+        if settings.publish_reference_scores:
+            base["indicative_scale"] = indicative_scale(rec)
         base["own_evidence"] = _own_evidence(rec)
+        base["summary"] = build_summary(rec, base["peer_headline"])
         base["withheld"] = _WITHHELD
         base["lead_capture"] = {
             "type": "sector_briefing",
@@ -514,6 +519,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
     if settings.publish_reference_scores:                          # block 6, ranges only
         base["indicative_scale"] = indicative_scale(rec)
     base["own_evidence"] = _own_evidence(rec)                      # block 7
+    base["summary"] = build_summary(rec, base["peer_headline"])    # the short version, under block 1
     base["withheld"] = _WITHHELD                                   # block 8
     base["lead_capture"] = {                                       # block 9
         "type": "business_case",

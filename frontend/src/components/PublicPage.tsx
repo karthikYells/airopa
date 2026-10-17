@@ -86,6 +86,7 @@ function SnapshotBody({ data }: { data: Snapshot }) {
     <>
       {data.peer_headline && <PeerCard peer={data.peer_headline} />}
       {data.company && <CompanyBar data={data} />}
+      {data.summary && <SummaryPanel s={data.summary} />}
 
       {data.mode === "REJECTED" && <Notice title="Please enter a company website" body={data.message} />}
       {data.mode === "EXCLUDED" && data.content && <Notice title={data.content.headline} body={data.content.body} />}
@@ -219,6 +220,18 @@ function PeerCard({ peer }: { peer: PeerHeadline }) {
               : ""}
         </p>
       </div>
+    </section>
+  );
+}
+
+/** The short version: their gap, in their own facts. */
+function SummaryPanel({ s }: { s: NonNullable<Snapshot["summary"]> }) {
+  return (
+    <section className="rounded-panel bg-navy px-6 py-6 text-band-fg sm:px-8">
+      <p className="font-mono text-[11.5px] uppercase tracking-[0.12em] text-orange">The short version</p>
+      <h2 className="mt-2 font-display text-[clamp(22px,2.8vw,32px)] font-extrabold leading-tight">{s.headline}</h2>
+      <p className="mt-3 max-w-[900px] text-[16px] leading-relaxed text-band-muted">{s.body}</p>
+      <p className="mt-3 text-[16px] font-semibold text-orange">{s.close}</p>
     </section>
   );
 }

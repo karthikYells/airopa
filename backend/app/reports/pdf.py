@@ -35,6 +35,8 @@ _S = {
                          textColor=FG, spaceBefore=10, spaceAfter=4),
     "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9.5, leading=13.5, textColor=FG),
     "muted": ParagraphStyle("muted", fontName="Helvetica", fontSize=8.5, leading=12, textColor=MUTED),
+    "band": ParagraphStyle("band", fontName="Helvetica", fontSize=10, leading=14.5,
+                           textColor=colors.HexColor("#F3F2EF")),
     "big": ParagraphStyle("big", fontName="Helvetica-Bold", fontSize=30, leading=32, textColor=ACCENT),
     "bullet": ParagraphStyle("bullet", fontName="Helvetica", fontSize=9.5, leading=13.5,
                              textColor=FG, leftIndent=10, bulletIndent=0, alignment=TA_LEFT),
@@ -119,6 +121,17 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
             out.append(Paragraph(f'<b>Why:</b> {_esc(card["why"])}', _S["body"]))
         return out + [Spacer(1, 4), table, Paragraph(_esc(card.get("basis", "")), _S["muted"]),
                       Spacer(1, 8)]
+
+    summ = payload.get("summary")
+    if summ:  # the short version, straight under the company facts
+        t = Table([[Paragraph(f'<font color="#E8791C"><b>THE SHORT VERSION</b></font><br/>'
+                              f'<font size="13"><b>{_esc(summ["headline"])}</b></font><br/>'
+                              f'{_esc(summ["body"])}<br/><font color="#E8791C"><b>{_esc(summ["close"])}</b></font>',
+                              _S["band"])]])
+        t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), BAND),
+                               ("LEFTPADDING", (0, 0), (-1, -1), 10), ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                               ("TOPPADDING", (0, 0), (-1, -1), 9), ("BOTTOMPADDING", (0, 0), (-1, -1), 9)]))
+        story += [t, Spacer(1, 6)]
 
     if payload.get("india_status"):
         t = Table([[Paragraph(f'<b>Your India status.</b> {_esc(payload["india_status"])}',

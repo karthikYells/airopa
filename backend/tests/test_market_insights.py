@@ -36,3 +36,16 @@ def test_weak_market_makes_no_claim():
     rec = _rec("precision_components")
     rec.india_market.points = 45
     assert _market_insights(rec, S) is None
+
+
+def test_not_applicable_dimension_is_hidden_not_weak():
+    m = _market_insights(_rec("software_saas"), S)
+    names = [d["name"] for d in m["dimensions"]]
+    assert "Supply chain and China plus one" not in names
+    assert len(names) == 5
+
+
+def test_consumer_goods_fit_reads_moderate_after_review():
+    m = _market_insights(_rec("consumer_goods"), S)
+    fit = next(d for d in m["dimensions"] if d["name"] == "Product and segment fit")
+    assert fit["level"] in ("Moderate", "Strong")

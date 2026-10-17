@@ -104,6 +104,8 @@ def _market_insights(rec: CompanyRecord, settings: Settings) -> dict | None:
     for d in score.dimensions:
         if d.points <= 0:
             continue  # unresolved: say nothing rather than guess
+        if d.basis.startswith("Not applicable"):
+            continue  # e.g. China plus one for software: hide, don't call it weak
         level = _word_level(d.points, d.max_points)
         texts = _INSIGHT.get(d.name)
         idx = 0 if level in ("Very strong", "Strong") else 1 if level == "Moderate" else 2

@@ -126,6 +126,8 @@ def _supply_chain(rec: CompanyRecord) -> DimensionScore:
     # 8-10 needs NAMED customers or suppliers relocating — company-specific
     # evidence the engine does not yet collect, so sector flow caps at 7.
     pts = {"strong": 6.0, "relevant": 5.0, "weak": 2.0}.get(str(c1), 1.0)  # 5-7: sector-level relocation flow
+    if c1 == "n/a":
+        return DimensionScore(name, pts, mx, "Not applicable to this sector")
     return DimensionScore(name, pts, mx, f"Sector relocation flow: {c1}; no named accounts")
 
 

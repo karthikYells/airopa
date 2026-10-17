@@ -201,10 +201,12 @@ SECTORS: dict[str, SectorReference] = {
         time_to_fill_home_wks=14, attrition=0.18, sector_delivery_precedent="adjacent",
         top_cities=["Bengaluru", "Gurugram", "Pune"], gcc_density=130,
         gcc_penetration=0.52, penetration_recent_24m=2, ip_intensity="moderate"),
+    # Reviewed by Airopa 2026-10-17: adaptation heavy -> moderate (European consumer
+    # brands typically need a variant or price tier, not a rebuild). Tariffs stay adverse.
     "consumer_goods": _r(
         sector="Consumer goods", market_size_eur=95_000_000_000,
         market_growth=0.13, downstream_growth=0.12, segment_present=True,
-        price_point_fit="moderate", adaptation="heavy", peers_india_revenue=True,
+        price_point_fit="moderate", adaptation="moderate", peers_india_revenue=True,
         foreign_entrants_succeed=True, pli_scheme=True, fdi_route="automatic",
         tariff_position="adverse", trade_agreement="EU-India FTA under negotiation",
         route_to_market="partial", approval_lead_months=6, local_mfg_preference=True,

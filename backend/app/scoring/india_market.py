@@ -92,7 +92,7 @@ def _policy(rec: CompanyRecord) -> DimensionScore:
     elif fdi == "automatic" and (pli or tariff == "favourable"):
         pts, why = 11.0, "automatic FDI and favourable terms, not fully sector specific"
     elif fdi == "automatic":
-        pts, why = 7.0, "automatic FDI, otherwise neutral"
+        pts, why = 8.0, "automatic FDI, otherwise neutral"   # top of the 4-8 neutral band
     else:
         pts, why = 5.0, "neutral policy position"
     return DimensionScore(name, pts, mx, why)
@@ -112,7 +112,7 @@ def _route(rec: CompanyRecord) -> DimensionScore:
         pts, why = 10.0, ("own India presence" if own_presence
                           else "established sector distribution, short approvals; no own presence")
     elif route in ("established", "partial"):
-        pts, why = 7.0, f"{route} sector distribution, no own presence"
+        pts, why = 9.0, f"{route} sector distribution, no own presence"   # 9-12: partial presence
     else:
         pts, why = 3.0, "no feasible route identified"
     return DimensionScore(name, pts, mx, why)
@@ -125,7 +125,7 @@ def _supply_chain(rec: CompanyRecord) -> DimensionScore:
         return _unknown(name, mx)
     # 8-10 needs NAMED customers or suppliers relocating — company-specific
     # evidence the engine does not yet collect, so sector flow caps at 7.
-    pts = {"strong": 6.0, "relevant": 4.0, "weak": 2.0}.get(str(c1), 1.0)
+    pts = {"strong": 6.0, "relevant": 5.0, "weak": 2.0}.get(str(c1), 1.0)  # 5-7: sector-level relocation flow
     return DimensionScore(name, pts, mx, f"Sector relocation flow: {c1}; no named accounts")
 
 

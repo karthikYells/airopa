@@ -38,6 +38,7 @@ class ApolloResult:
     country: str | None = None
     industry: str | None = None
     founded_year: int | None = None
+    city: str | None = None
     employees: int | None = None
     revenue_eur: int | None = None
     total_people_count: int = 0   # all profiles at the domain: Apollo's coverage
@@ -94,6 +95,7 @@ def parse_org(data: dict) -> dict:
         "country": org.get("country"),
         "industry": org.get("industry"),
         "founded_year": org.get("founded_year"),
+        "city": org.get("city"),
         "employees": org.get("estimated_num_employees"),
         "revenue_eur": int(rev * _USD_TO_EUR) if isinstance(rev, (int, float)) and rev > 0 else None,
     }

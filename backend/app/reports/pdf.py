@@ -72,17 +72,6 @@ def _header(canvas, doc):
     canvas.restoreState()
 
 
-def _score_cell(s: dict, color) -> list:
-    rows = [Paragraph(_esc(s["label"]), _S["h2"]),
-            Paragraph(f'<font color="{color.hexval()}" size="24"><b>{s["score"]}</b></font>'
-                      f'<font color="#5C5E66"> / 100  ·  {_esc(s["band"])}</font>', _S["body"]),
-            Spacer(1, 4)]
-    for d in s.get("sub_dimensions", []):
-        rows.append(Paragraph(f'{_esc(d["name"])}: <b>{_esc(d["level"])}</b>', _S["muted"]))
-    rows.append(Paragraph(f'Evidence coverage {s.get("coverage")}%', _S["muted"]))
-    return rows
-
-
 def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
@@ -93,35 +82,62 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
 
     story.append(Paragraph("INDIA MARKET ASSESSMENT", _S["eyebrow"]))
     story.append(Paragraph(_esc(c.get("name") or c.get("input") or ""), _S["h1"]))
-    facts = [c.get(k) for k in ("sector", "country", "revenue", "headcount") if c.get(k)]
-    story.append(Paragraph(_esc("  ·  ".join(facts)), _S["muted"]))
+    facts = [c.get("sector"), c.get("location") or c.get("country"), c.get("revenue"),
+             c.get("headcount"), c.get("founded")]
+    story.append(Paragraph(_esc("  ·  ".join(f for f in facts if f)), _S["muted"]))
+    sigs = c.get("signals") or []
+    if sigs:
+        story.append(Paragraph(
+            "  ·  ".join(f'<font color="{"#B42318" if g["tone"] == "red" else "#1E9E6A" if g["tone"] == "green" else "#18191E"}">'
+                         f'<b>{_esc(g["text"])}</b></font>' for g in sigs)
+            + f'  <font color="#5C5E66">({_esc(c.get("signals_source") or "")})</font>', _S["body"]))
     prepared = f"Prepared {date.today().strftime('%d %B %Y')}"
     if recipient_name:
         prepared += f" for {_esc(recipient_name)}"
     story.append(Paragraph(prepared + f"  ·  {_esc(c.get('input') or '')}", _S["muted"]))
     story.append(Spacer(1, 8))
 
-    market = payload.get("market")
-    if market:
-        story.append(Paragraph("India as a market for what you sell", _S["h2"]))
-        head = Table([[Paragraph(f'{market["score"]}', _S["big"]),
-                       Paragraph(f'<b>{_esc(market["headline"])}</b><br/>'
-                                 f'<font color="#5C5E66">India Market Opportunity: '
-                                 f'{_esc(market["band"])}, out of 100.</font>', _S["body"])]],
+    def reasoned(card: dict, title: str, color, dims: list[tuple[str, str, str]]):
+        hexc = "#" + color.hexval()[2:]
+        head = Table([[Paragraph(f'<font color="{hexc}">{card["score"]}</font>', _S["big"]),
+                       Paragraph(f'<b>{_esc(card["label"])}: {_esc(card["band"])}</b>, out of 100.<br/>'
+                                 f'<font color="#5C5E66">{_esc(card.get("question", ""))}</font>',
+                                 _S["body"])]],
                      colWidths=[30 * mm, None])
         head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                                  ("LINEABOVE", (0, 0), (-1, 0), 2, ACCENT),
+                                  ("LINEABOVE", (0, 0), (-1, 0), 2, color),
                                   ("TOPPADDING", (0, 0), (-1, -1), 8)]))
-        rows = [[Paragraph(f'<b>{_esc(d["name"])}</b>', _S["body"]),
-                 Paragraph(f'<b>{_esc(d["level"])}</b>', _S["body"]),
-                 Paragraph(_esc(d["insight"]), _S["body"])] for d in market["dimensions"]]
-        dims = Table(rows, colWidths=[42 * mm, 24 * mm, None])
-        dims.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
-                                  ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
-                                  ("TOPPADDING", (0, 0), (-1, -1), 4),
-                                  ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
-        story += [head, Spacer(1, 4), dims, Paragraph(_esc(market["basis"]), _S["muted"]),
-                  Spacer(1, 8), Paragraph("Your India presence today", _S["h2"])]
+        rows = [[Paragraph(f'<b>{_esc(n)}</b>', _S["body"]), Paragraph(f'<b>{_esc(lv)}</b>', _S["body"]),
+                 Paragraph(_esc(r), _S["body"])] for n, lv, r in dims]
+        table = Table(rows, colWidths=[42 * mm, 24 * mm, None])
+        table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                   ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
+                                   ("TOPPADDING", (0, 0), (-1, -1), 4),
+                                   ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
+        out = [Paragraph(title, _S["h2"]), head]
+        if card.get("why"):
+            out.append(Paragraph(f'<b>Why:</b> {_esc(card["why"])}', _S["body"]))
+        return out + [Spacer(1, 4), table, Paragraph(_esc(card.get("basis", "")), _S["muted"]),
+                      Spacer(1, 8)]
+
+    if payload.get("india_status"):
+        t = Table([[Paragraph(f'<b>Your India status.</b> {_esc(payload["india_status"])}',
+                              _S["body"])]])
+        t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), ACCENT_SOFT),
+                               ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                               ("TOPPADDING", (0, 0), (-1, -1), 6),
+                               ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+        story += [t, Spacer(1, 6)]
+
+    market = payload.get("market")
+    if market:
+        story += reasoned(market, "India as a market for what you sell", ACCENT,
+                          [(d["name"], d["level"], d["insight"]) for d in market["dimensions"]])
+
+    th = payload.get("technology_hub")
+    if th:
+        story += reasoned(th, "India as a place to build technology", GREEN,
+                          [(d["name"], d["level"], d["reason"]) for d in th["dimensions"]])
 
     peer = payload.get("peer_headline")
     if peer:
@@ -135,25 +151,8 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
                                ("TOPPADDING", (0, 0), (-1, -1), 8)]))
         story += [t, Spacer(1, 6)]
 
-    if payload.get("india_status"):
-        t = Table([[Paragraph(f'<b>Your India status.</b> {_esc(payload["india_status"])}',
-                              _S["body"])]])
-        t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), ACCENT_SOFT),
-                               ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                               ("TOPPADDING", (0, 0), (-1, -1), 6),
-                               ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
-        story += [t, Spacer(1, 6)]
-
     if payload.get("message"):
         story.append(Paragraph(_esc(payload["message"]), _S["body"]))
-
-    th = payload.get("technology_hub")
-    if th:  # published only once the talent data source is approved
-        t = Table([[_score_cell(th, GREEN)]], colWidths=["60%"])
-        t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
-                               ("BOX", (0, 0), (0, 0), 0.5, LINE),
-                               ("LEFTPADDING", (0, 0), (-1, -1), 8)]))
-        story += [t, Spacer(1, 6)]
 
     scale = payload.get("indicative_scale")
     if scale:
@@ -165,7 +164,7 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
 
     evidence = payload.get("own_evidence") or []
     if evidence:
-        story.append(Paragraph("What we found when we looked at your company", _S["h2"]))
+        story.append(Paragraph("What we found when we looked at your company specifically", _S["h2"]))
         for p in evidence:
             block = [Paragraph(f'<b>{_esc(p["title"])}</b>', _S["body"])]
             block += [Paragraph(_rich(b), _S["bullet"], bulletText="•") for b in p["bullets"]]

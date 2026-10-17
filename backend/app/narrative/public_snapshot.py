@@ -13,6 +13,8 @@ that it is absent from the page entirely, never hedged (Section 9.6).
 """
 from __future__ import annotations
 
+import re
+
 from app.config import Settings
 from app.data.records import (
     CompanyRecord, GateVerdict, ResponseMode, ScoreResult,
@@ -34,24 +36,119 @@ def _word_level(points: float, max_points: int) -> str:
             else "Moderate" if r >= 0.5 else "Weak")
 
 
-def _published_score(score: ScoreResult, settings: Settings) -> dict | None:
-    """Score block with three named sub-dimensions at WORD level, not points
-    (Section 9.2). None when coverage is below the publication floor, or while
-    the India reference data is not approved for publication."""
-    if not settings.publish_reference_scores:
+def _ratio(d) -> float:
+    return d.points / d.max_points if d.max_points else 0.0
+
+
+# Short names for the one-line "why this score" summary.
+_SHORT = {
+    "Addressable demand": "demand", "Product and segment fit": "product fit",
+    "Competitive position": "competitive position", "Policy and incentives": "policy",
+    "Route to market": "route to market", "Supply chain and China plus one": "supply-chain shift",
+    "Talent pool depth for their stack": "talent depth", "Cost arbitrage": "cost gap",
+    "IP control and security": "IP control", "Hiring velocity": "hiring speed",
+    "Sector delivery precedent": "sector precedent", "Sovereignty and data risk": "data and export risk",
+    "Location and infrastructure fit": "location fit",
+}
+
+
+# Where the plain short name reads wrong as a lift ("lifted by data risk").
+_LIFT = {"Sovereignty and data risk": "few data or export constraints",
+         "Cost arbitrage": "a wide cost gap"}
+
+# Public display names (the engine's own names describe "their" side).
+_DISPLAY = {"Talent pool depth for their stack": "Talent depth for your stack"}
+
+
+def _why(score: ScoreResult, shown: list) -> str:
+    """One sentence on what drives the score and what holds it back, from the
+    dimension ratios. Words only; the points stay in the engine."""
+    ranked = sorted(shown, key=_ratio, reverse=True)
+    lifts = [_LIFT.get(d.name) or _SHORT.get(d.name, d.name.lower())
+             for d in ranked if _ratio(d) >= 0.75][:2]
+    holds = [_SHORT.get(d.name, d.name.lower()) for d in reversed(ranked) if _ratio(d) < 0.6][:2]
+    out = f"{round(score.points)} out of 100"
+    if lifts:
+        out += ", lifted by " + " and ".join(lifts)
+    if holds:
+        out += ", held back by " + " and ".join(holds)
+    return out + "."
+
+
+def _level_idx(level: str) -> int:
+    return 0 if level in ("Very strong", "Strong") else 1 if level == "Moderate" else 2
+
+
+# Technology Hub reasons, by dimension and strength (strong / moderate / weak).
+_TECH_REASON = {
+    "Talent pool depth for their stack": (
+        "India has a deep talent pool for your sector{stack}.",
+        "Talent for your sector is available in India, in smaller pools{stack}.",
+        "Thin India talent for your specific skills{stack}."),
+    "Cost arbitrage": (
+        "Comparable roles cost substantially less in India, fully loaded.",
+        "A meaningful cost gap on comparable roles.",
+        "A limited cost gap for your role mix."),
+    "IP control and security": (
+        "An owned team would give you more control over your IP than outsourced work does.",
+        "Your sector is IP-intensive; how much is exposed today is for the full assessment.",
+        "Your sector is IP-intensive; how much is exposed today is for the full assessment."),
+    "Hiring velocity": (
+        "Roles in your sector fill much faster in India than at home.",
+        "Roles in your sector fill somewhat faster in India.",
+        "Little difference in time to hire."),
+    "Sector delivery precedent": (
+        "Companies in your sector already run engineering from India.",
+        "Some sector precedent for delivery from India.",
+        "Little sector precedent for delivery from India yet."),
+    "Sovereignty and data risk": (
+        "No material data, export or defence constraints identified for your sector.",
+        "Some data or export constraints to design around.",
+        "Material data or export constraints for your sector."),
+    "Location and infrastructure fit": (
+        "Suitable cities exist for your sector{cities}.",
+        "Workable cities exist for your sector{cities}, with trade-offs.",
+        "Location options are limited for your sector."),
+}
+
+
+def _tech_hub_card(rec: CompanyRecord, settings: Settings) -> dict | None:
+    """Block 5: Technology Hub Readiness with a reason per dimension. Labelled
+    indicative and sector-level; company facts are added where we have them
+    (their stack, their own vacancy durations)."""
+    score = rec.technology_hub
+    if not settings.publish_tech_hub or score is None:
         return None
-    if score is None or score.coverage < settings.publication_score_coverage_floor:
+    if score.coverage < settings.publication_score_coverage_floor:
         return None
-    resolved = [d for d in score.dimensions if d.points > 0]
-    top = sorted(resolved, key=lambda d: d.max_points, reverse=True)[:3]
+    stack = _resolved(rec, "TAL.01")
+    stack_txt = (f"; your own stack includes {', '.join(map(str, stack.value[:3]))}"
+                 if stack and isinstance(stack.value, list) and stack.value else "")
+    open_days = _resolved(rec, "HIRE.06")
+    shown, dims = [], []
+    for d in score.dimensions:
+        if d.points <= 0:
+            continue
+        level = _word_level(d.points, d.max_points)
+        m = re.search(r"Candidate cities ([^;]+)", d.basis)
+        reason = _TECH_REASON.get(d.name, ("", "", ""))[_level_idx(level)].format(
+            stack=stack_txt, cities=f", such as {m.group(1).strip()}" if m else "")
+        if d.name == "Hiring velocity" and open_days and isinstance(open_days.value, (int, float)) \
+                and open_days.value >= 90:
+            reason = (f"Half of your listed roles have been open at least {open_days.value} days; "
+                      "comparable roles fill faster in India.")
+        shown.append(d)
+        dims.append({"name": _DISPLAY.get(d.name, d.name), "level": level, "reason": reason})
     return {
         "label": score.label,
         "question": _QUESTIONS.get(score.key, ""),
         "score": round(score.points),
         "band": score.band.value,
         "coverage": round(score.coverage * 100),
-        "sub_dimensions": [{"name": d.name, "level": _word_level(d.points, d.max_points)}
-                           for d in top],
+        "why": _why(score, shown),
+        "dimensions": dims,
+        "basis": ("Indicative. Based on sector-level reference data for India and what "
+                  "your own site shows; the full business case tests it against your roles."),
     }
 
 
@@ -101,7 +198,7 @@ def _market_insights(rec: CompanyRecord, settings: Settings) -> dict | None:
         return None
     if score.coverage < settings.publication_score_coverage_floor or score.points < 50:
         return None
-    dims = []
+    dims, shown = [], []
     for d in score.dimensions:
         if d.points <= 0:
             continue  # unresolved: say nothing rather than guess
@@ -109,8 +206,11 @@ def _market_insights(rec: CompanyRecord, settings: Settings) -> dict | None:
             continue  # e.g. China plus one for software: hide, don't call it weak
         level = _word_level(d.points, d.max_points)
         texts = _INSIGHT.get(d.name)
-        idx = 0 if level in ("Very strong", "Strong") else 1 if level == "Moderate" else 2
-        dims.append({"name": d.name, "level": level, "insight": texts[idx] if texts else ""})
+        reason = texts[_level_idx(level)] if texts else ""
+        if d.name == "Route to market":
+            reason += " " + _route_fact(rec)
+        shown.append(d)
+        dims.append({"name": d.name, "level": level, "insight": reason.strip()})
     return {
         "label": "India Market Opportunity",
         "question": "Is India a market for what you sell, not only a place to build?",
@@ -118,6 +218,7 @@ def _market_insights(rec: CompanyRecord, settings: Settings) -> dict | None:
         "band": score.band.value,
         "coverage": round(score.coverage * 100),
         "headline": _MARKET_HEADLINE.get(score.band.value, ""),
+        "why": _why(score, shown),
         "dimensions": dims,
         "basis": (f"Indicative. Based on sector-level reference data for "
                   f"{(rec.sector or 'your sector').lower()} in India, not on research into "
@@ -125,20 +226,61 @@ def _market_insights(rec: CompanyRecord, settings: Settings) -> dict | None:
     }
 
 
+def _route_fact(rec: CompanyRecord) -> str:
+    """Their own position on the route to market, from the India gate."""
+    v = rec.gate.verdict if rec.gate is not None else None
+    if v in (GateVerdict.CONFIRMED, GateVerdict.CLEAR):
+        return "Your existing India presence shortens this."
+    if v is GateVerdict.CLEAR_GREENFIELD:
+        return "You have no India presence of your own yet, so a partner or entity is the first step."
+    return ""
+
+
+def _eur(v: float) -> str:
+    return f"EUR {v / 1e9:.1f}bn" if v >= 1e9 else f"EUR {v / 1e6:.0f}m"
+
+
 def _company_facts(rec: CompanyRecord) -> dict:
-    """Block 1: who we resolved them to. Only resolved, sourced facts appear."""
+    """Block 1: who we resolved them to. Only resolved, sourced facts appear.
+    `signals` are company-level facts from their own annual report."""
     def val(sid):
         ev = rec.get(sid)
         return ev.value if ev is not None and ev.is_resolved else None
-    rev, hc = val("SCALE.01"), val("SCALE.04")
+    rev, hc, founded = val("SCALE.01"), val("SCALE.04"), val("IDENT.08")
+    rev_ev = rec.get("SCALE.01")
+    from_report = rev_ev is not None and rev_ev.source_type is not None \
+        and rev_ev.source_type.value == "filing"
+    signals = []
+    fin = rec.financials or {}
+    g = fin.get("revenue_growth")
+    if isinstance(g, (int, float)):
+        signals.append({"text": f"Revenue {'up' if g >= 0 else 'down'} {abs(g):.1%} in FY{fin['year']}",
+                        "tone": "green" if g > 0.02 else "red" if g < 0 else "neutral"})
+    m_now, m_prev = fin.get("op_margin"), fin.get("op_margin_prev")
+    if isinstance(m_now, (int, float)):
+        if isinstance(m_prev, (int, float)):
+            down = m_now < m_prev
+            signals.append({"text": f"Operating margin {m_now:.1%}, {'down' if down else 'up'} "
+                                    f"from {m_prev:.1%}",
+                            "tone": "red" if down else "green"})
+        else:
+            signals.append({"text": f"Operating margin {m_now:.1%}", "tone": "neutral"})
+    press2 = _resolved(rec, "PRESS.02")
+    if press2 and press2.value is True:
+        signals.append({"text": "Profit growing slower than revenue", "tone": "red"})
+    location = ", ".join(x for x in (rec.hq_city, rec.jurisdiction or rec.country) if x) or None
     return {
         "input": rec.input_url,
         "name": rec.resolved_name,
         "sector": rec.sector,
         "country": rec.jurisdiction or rec.country,
-        "revenue": (f"EUR {rev / 1e9:.1f}bn" if isinstance(rev, (int, float)) and rev >= 1e9
-                    else f"EUR {rev / 1e6:.0f}m" if isinstance(rev, (int, float)) else None),
+        "location": location,
+        "revenue": (_eur(rev) + (f" (FY{fin['year']})" if from_report and fin.get("year") else "")
+                    if isinstance(rev, (int, float)) else None),
         "headcount": f"{hc:,} people" if isinstance(hc, int) else None,
+        "founded": f"Founded {founded}" if isinstance(founded, int) else None,
+        "signals": signals,
+        "signals_source": "Your published annual report" if signals else None,
     }
 
 
@@ -328,6 +470,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
                             "for what you sell.")
         # Market access is the point of the engine, so a smaller company gets the
         # same case for the full assessment, framed around selling into India.
+        base["india_status"] = _india_status_line(rec)
         base["own_evidence"] = _own_evidence(rec)
         base["withheld"] = _WITHHELD
         base["lead_capture"] = {
@@ -343,7 +486,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
 
     if mode is ResponseMode.ENTERPRISE:
         base["market"] = _market_insights(rec, settings)
-        base["technology_hub"] = _published_score(rec.technology_hub, settings)
+        base["technology_hub"] = _tech_hub_card(rec, settings)
         base["message"] = ("At your scale this deserves a direct conversation "
                             "rather than a form.")
         base["lead_capture"] = {"type": "route_to_partner", "field": "work_email",
@@ -354,7 +497,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
     base["peer_headline"] = _peer_headline(rec, seed_cohort)       # block 2
     base["india_status"] = _india_status_line(rec)                 # block 3
     base["market"] = _market_insights(rec, settings)               # block 4, market access
-    base["technology_hub"] = _published_score(rec.technology_hub, settings)  # block 5
+    base["technology_hub"] = _tech_hub_card(rec, settings)  # block 5
     if settings.publish_reference_scores:                          # block 6, ranges only
         base["indicative_scale"] = {
             "first_phase_team": "20 to 35 people",

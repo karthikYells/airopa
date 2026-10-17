@@ -126,6 +126,15 @@ def apply_financials(rec, fin: dict, url: str) -> int:
     src = dict(source_type=SourceType.FILING, source_authority=SourceAuthority.PRIMARY,
                method=Method.MODEL, confidence=0.75)
     added = 0
+    prev = ys[1] if len(ys) >= 2 else None
+    def margin(y):
+        return y["op_profit"] / y["revenue"] if y["op_profit"] is not None and y["revenue"] else None
+    rec.financials = {
+        "year": latest["year"], "revenue": latest["revenue"],
+        "revenue_growth": (latest["revenue"] / prev["revenue"] - 1) if prev and prev["revenue"] else None,
+        "op_margin": margin(latest), "op_margin_prev": margin(prev) if prev else None,
+        "prev_year": prev["year"] if prev else None, "source_url": url,
+    }
     rec.add(Evidence("SCALE.01", int(latest["revenue"]), unit="EUR",
                      source_url=f"{url}#page={latest['rev_page']}",
                      as_of_date=f"{latest['year']}-12-31",

@@ -118,6 +118,9 @@ class CompanyRecord:
     exclusions: list[ExclusionHit] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
     news_events: list[dict] = field(default_factory=list)   # verified newsroom events (internal)
+    hq_city: str | None = None                               # headquarters city (Apollo)
+    # Verified annual-report figures for the banner: year, revenue, growth, margins.
+    financials: dict | None = None
 
     # scores
     gcc_fit: ScoreResult | None = None

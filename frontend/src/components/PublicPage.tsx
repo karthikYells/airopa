@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { copyToNetlifyForms, getExamples, requestReport, scoreCompany } from "../api";
-import type { Market, OwnEvidence, PeerHeadline, ScoreBlock, Snapshot } from "../types";
+import type { HubCard, Market, OwnEvidence, PeerHeadline, Snapshot } from "../types";
 import {
   DomainInput, Rich, Scanning, SiteFooter, SiteHeader, bandStyle, companyFromUrl, setCompanyInUrl,
 } from "./ui";
@@ -79,46 +79,42 @@ export function PublicPage() {
 }
 
 function SnapshotBody({ data }: { data: Snapshot }) {
-  const hasScores = !!(data.technology_hub || data.indicative_scale);
+  const cards = [data.market, data.technology_hub, data.indicative_scale].filter(Boolean).length;
+  const cols = cards >= 3 ? "lg:grid-cols-3" : cards === 2 ? "lg:grid-cols-2" : "";
+  const showMessage = data.message && data.mode !== "INSUFFICIENT_DATA" && data.mode !== "REJECTED";
   return (
     <>
+      {data.peer_headline && <PeerCard peer={data.peer_headline} />}
       {data.company && <CompanyBar data={data} />}
 
       {data.mode === "REJECTED" && <Notice title="Please enter a company website" body={data.message} />}
       {data.mode === "EXCLUDED" && data.content && <Notice title={data.content.headline} body={data.content.body} />}
       {data.mode === "INSUFFICIENT_DATA" && <Insufficient data={data} />}
 
-      {/* 1. Selling into India */}
-      {data.market && <MarketSection m={data.market} />}
+      {/* Scores, each with the reasoning behind it */}
+      {cards > 0 && (
+        <div className={`grid grid-cols-1 gap-5 ${cols}`}>
+          {data.market && <MarketCard m={data.market} />}
+          {data.technology_hub && <HubScoreCard s={data.technology_hub} />}
+          {data.indicative_scale && <ScaleCard scale={data.indicative_scale} />}
+        </div>
+      )}
 
-      {/* 2. Your India presence today */}
-      {(data.india_status || data.peer_headline || data.own_evidence?.length) && (
-        <section className="space-y-5">
-          <SectionLabel>Your India presence today</SectionLabel>
-          {data.india_status && (
-            <p className="text-[clamp(20px,2.4vw,26px)] font-display font-bold leading-snug text-ink">
-              {data.india_status}
-            </p>
-          )}
-          {data.message && data.mode !== "INSUFFICIENT_DATA" && data.mode !== "REJECTED" && (
+      {/* What we found on their own sources */}
+      {(showMessage || (data.own_evidence && data.own_evidence.length > 0)) && (
+        <section className="space-y-4">
+          <SectionLabel>What we found when we looked at your company specifically</SectionLabel>
+          {showMessage && (
             <p className="rounded-panel border-l-4 border-orange bg-orange-soft px-5 py-3 text-[15px] text-ink">
               {data.message}
             </p>
           )}
-          {data.peer_headline && <PeerCard peer={data.peer_headline} />}
           {data.own_evidence && data.own_evidence.length > 0 && (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
               {data.own_evidence.map((p) => <EvidenceCard key={p.title} p={p} />)}
             </div>
           )}
         </section>
-      )}
-
-      {hasScores && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {data.technology_hub && <ScoreCard s={data.technology_hub} accent="green" />}
-          {data.indicative_scale && <ScaleCard scale={data.indicative_scale} />}
-        </div>
       )}
 
       {data.run_id && data.mode !== "REJECTED" && data.mode !== "EXCLUDED" && (
@@ -143,51 +139,70 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-const levelStyle = (level: string) =>
-  level === "Very strong" ? "bg-green/10 text-green"
-    : level === "Strong" ? "bg-orange-soft text-orange-ink"
-      : level === "Moderate" ? "bg-amber/10 text-amber" : "bg-red/10 text-red";
+const levelText = (level: string) =>
+  level === "Very strong" ? "text-green"
+    : level === "Strong" ? "text-orange-ink"
+      : level === "Moderate" ? "text-amber" : "text-red";
 
-/** India as a market for what they sell: the lead block of the page. */
-function MarketSection({ m }: { m: Market }) {
+/** A score with its reasoning: the why line, then each dimension in words
+ *  with the reason behind it. Points never leave the engine. */
+function ReasonedCard(props: {
+  accent: "orange" | "green"; label: string; question: string; score: number; band: string;
+  why: string; dims: { name: string; level: string; reason: string }[]; basis: string;
+}) {
+  const { accent, label, question, score, band, why, dims, basis } = props;
+  const top = accent === "orange" ? "border-t-orange" : "border-t-green";
+  const color = accent === "orange" ? "text-orange" : "text-green";
+  const bar = accent === "orange" ? "bg-orange" : "bg-green";
   return (
-    <section className="space-y-4">
-      <SectionLabel>India as a market for what you sell</SectionLabel>
-      <div className="rounded-panel border border-line border-l-4 border-l-orange bg-white p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
-          <div className="whitespace-nowrap">
-            <span className="font-display text-6xl font-extrabold text-orange">{m.score}</span>
-            <span className="ml-1 font-mono text-sm text-mute">/ 100</span>
-          </div>
-          <div>
-            <p className="font-display text-[clamp(22px,2.6vw,30px)] font-extrabold leading-tight text-ink">{m.headline}</p>
-            <p className="mt-1 text-sm text-mute">
-              {m.label}: <strong className="text-ink">{m.band}</strong> · indicative
-            </p>
-          </div>
-        </div>
-        <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
-          {m.dimensions.map((d) => (
-            <div key={d.name} className="border-t border-line pt-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-[16px] font-bold text-ink">{d.name}</h3>
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 font-mono text-[11px] uppercase ${levelStyle(d.level)}`}>
-                  {d.level}
-                </span>
-              </div>
-              <p className="mt-1 text-[15px] text-mute">{d.insight}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-5 text-xs text-mute">{m.basis}</p>
+    <section className={`flex flex-col rounded-panel border border-line border-t-4 ${top} bg-white p-6`}>
+      <h3 className="text-[19px] font-bold text-ink">{label}</h3>
+      <p className="mt-0.5 text-sm text-mute">{question}</p>
+      <div className="mt-4 flex items-end justify-between">
+        <p>
+          <span className={`font-display text-5xl font-extrabold ${color}`}>{score}</span>
+          <span className="ml-1 font-mono text-sm text-mute">/ 100</span>
+        </p>
+        <span className={`rounded-full px-2.5 py-1 font-mono text-[11px] uppercase ${bandStyle(band)}`}>{band}</span>
       </div>
+      <div className="mt-3 h-2 w-full rounded-full bg-line">
+        <div className={`h-2 rounded-full ${bar}`} style={{ width: `${score}%` }} />
+      </div>
+      {why && <p className="mt-4 text-[15px] font-semibold text-ink">Why: {why}</p>}
+      <dl className="mt-3 divide-y divide-line">
+        {dims.map((d) => (
+          <div key={d.name} className="py-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-[14.5px] font-semibold text-ink">{d.name}</dt>
+              <dd className={`shrink-0 text-[13.5px] font-semibold ${levelText(d.level)}`}>{d.level}</dd>
+            </div>
+            {d.reason && <p className="mt-0.5 text-[13.5px] leading-snug text-mute">{d.reason}</p>}
+          </div>
+        ))}
+      </dl>
+      <p className="mt-auto pt-3 text-xs text-mute">{basis}</p>
     </section>
+  );
+}
+
+function MarketCard({ m }: { m: Market }) {
+  return (
+    <ReasonedCard accent="orange" label={m.label} question={m.question} score={m.score} band={m.band}
+      why={m.why} basis={m.basis}
+      dims={m.dimensions.map((d) => ({ name: d.name, level: d.level, reason: d.insight }))} />
+  );
+}
+
+function HubScoreCard({ s }: { s: HubCard }) {
+  return (
+    <ReasonedCard accent="green" label={s.label} question={s.question} score={s.score} band={s.band}
+      why={s.why} basis={s.basis} dims={s.dimensions} />
   );
 }
 
 function PeerCard({ peer }: { peer: PeerHeadline }) {
   return (
-    <section className="flex flex-col gap-4 rounded-panel border border-line border-l-4 border-l-orange bg-white px-6 py-5 sm:flex-row sm:items-center sm:gap-8">
+    <section className="flex flex-col gap-4 rounded-panel border border-line border-t-4 border-t-orange bg-white px-6 py-5 sm:flex-row sm:items-center sm:gap-8">
       <div className="whitespace-nowrap font-display text-5xl font-extrabold text-orange sm:text-6xl">
         {peer.with_centre} of {peer.total}
       </div>
@@ -207,45 +222,35 @@ function PeerCard({ peer }: { peer: PeerHeadline }) {
   );
 }
 
+const chipTone = (t: string) =>
+  t === "red" ? "bg-red/10 text-red" : t === "green" ? "bg-green/10 text-green" : "bg-line text-ink";
+
+/** Block 1: who they are, their own financial trend, and where they stand in India. */
 function CompanyBar({ data }: { data: Snapshot }) {
   const c = data.company!;
-  const facts = [c.sector, c.country, c.revenue, c.headcount].filter(Boolean) as string[];
+  const facts = [c.sector, c.location ?? c.country, c.revenue, c.headcount, c.founded]
+    .filter(Boolean) as string[];
   return (
-    <section className="flex flex-col gap-2 rounded-panel border border-line bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 className="text-[clamp(24px,3vw,32px)] font-extrabold tracking-tight text-ink">{c.name || c.input}</h2>
-        <p className="text-[15px] text-mute">{facts.join("  ·  ")}</p>
+    <section className="rounded-panel border border-line bg-[#F3F5F9] px-6 py-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
+        <div>
+          <h2 className="text-[clamp(22px,2.6vw,28px)] font-extrabold tracking-tight text-ink">{c.name || c.input}</h2>
+          <p className="text-[15px] text-mute">{facts.join("  ·  ")}</p>
+        </div>
+        {data.india_status && (
+          <p className="max-w-[420px] text-[15px] font-semibold text-ink lg:text-right">{data.india_status}</p>
+        )}
       </div>
-    </section>
-  );
-}
-
-function ScoreCard({ s, accent }: { s: ScoreBlock; accent: "orange" | "green" }) {
-  const color = accent === "orange" ? "text-orange" : "text-green";
-  const bar = accent === "orange" ? "bg-orange" : "bg-green";
-  return (
-    <section className="rounded-panel border border-line bg-white p-6">
-      <h3 className="text-[21px] font-bold text-ink">{s.label}</h3>
-      {s.question && <p className="mt-0.5 text-sm text-mute">{s.question}</p>}
-      <div className="mt-5 flex items-end justify-between">
-        <p>
-          <span className={`font-display text-5xl font-extrabold ${color}`}>{s.score}</span>
-          <span className="ml-1 font-mono text-sm text-mute">/ 100</span>
-        </p>
-        <span className={`rounded-full px-2.5 py-1 font-mono text-[11px] uppercase ${bandStyle(s.band)}`}>{s.band}</span>
-      </div>
-      <div className="mt-3 h-2 w-full rounded-full bg-line">
-        <div className={`h-2 rounded-full ${bar}`} style={{ width: `${s.score}%` }} />
-      </div>
-      <dl className="mt-4 space-y-1.5 text-sm">
-        {s.sub_dimensions.map((d) => (
-          <div key={d.name} className="flex justify-between">
-            <dt className="text-mute">{d.name}</dt>
-            <dd className="font-semibold text-ink">{d.level}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-3 text-xs text-mute">Evidence coverage {s.coverage}%</p>
+      {c.signals && c.signals.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {c.signals.map((s) => (
+            <span key={s.text} className={`rounded-full px-3 py-1 text-[13px] font-semibold ${chipTone(s.tone)}`}>
+              {s.text}
+            </span>
+          ))}
+          {c.signals_source && <span className="font-mono text-[11px] text-mute">Source: {c.signals_source}</span>}
+        </div>
+      )}
     </section>
   );
 }

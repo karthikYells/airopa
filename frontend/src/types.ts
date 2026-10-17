@@ -21,7 +21,21 @@ export interface Market {
   band: string;
   coverage: number;
   headline: string;
+  why: string; // one line: what lifts the score and what holds it back
   dimensions: { name: string; level: string; insight: string }[];
+  basis: string;
+}
+
+/** Technology Hub Readiness: score, why line and a reason per dimension,
+ *  labelled indicative (points stay in the engine). */
+export interface HubCard {
+  label: string;
+  question: string;
+  score: number;
+  band: string;
+  coverage: number;
+  why: string;
+  dimensions: { name: string; level: string; reason: string }[];
   basis: string;
 }
 
@@ -45,8 +59,13 @@ export interface Company {
   name?: string;
   sector?: string;
   country?: string;
+  location?: string | null;
   revenue?: string | null;
   headcount?: string | null;
+  founded?: string | null;
+  // Company-level facts from their own annual report (revenue trend, margin).
+  signals?: { text: string; tone: "green" | "red" | "neutral" }[];
+  signals_source?: string | null;
 }
 
 export interface Snapshot {
@@ -62,7 +81,7 @@ export interface Snapshot {
   peer_headline?: PeerHeadline | null;
   india_status?: string;
   market?: Market | null;
-  technology_hub?: ScoreBlock | null;
+  technology_hub?: HubCard | null;
   indicative_scale?: {
     first_phase_team: string;
     indicative_saving: string;

@@ -173,6 +173,8 @@ def _apply_apollo_firmographics(rec: CompanyRecord, ap: ApolloResult) -> None:
     common = dict(source_url=ap.source_url, source_type=SourceType.REFERENCE_DATA,
                   source_authority=SourceAuthority.SECONDARY, method=Method.API,
                   as_of_date=ap.as_of, notes="Apollo.io estimate")
+    if ap.city and not rec.hq_city:
+        rec.hq_city = ap.city
     if ap.founded_year and missing("IDENT.08"):
         rec.add(Evidence("IDENT.08", ap.founded_year, confidence=0.6, **common))
     if ap.revenue_eur and missing("SCALE.01"):

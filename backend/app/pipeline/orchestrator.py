@@ -156,6 +156,9 @@ def run_pipeline(
         # reference lookup, so no Tier 3 research is spent.
         if rec.sector:
             rec.india_market = score_india_market(rec, settings)
+            # Technology Hub is a reference lookup too; smaller and existing-centre
+            # companies get it on the public page.
+            rec.technology_hub = score_technology_hub(rec, settings)
         return outcome
 
     # ---------------- Tier 2: triage ----------------

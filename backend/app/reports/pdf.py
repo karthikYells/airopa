@@ -129,6 +129,20 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
                                ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
         story += [t, Spacer(1, 6)]
 
+    peer = payload.get("peer_headline")
+    if peer:  # block 2: before the scores (Section 9.2)
+        claim = peer.get("claim") or ("of the companies we identify as your closest peers "
+                                       "already run a capability centre in India.")
+        t = Table([[Paragraph(f'{peer["with_centre"]} of {peer["total"]}', _S["big"]),
+                    Paragraph(f"<b>{_esc(claim)}</b> Your cohort: "
+                              f'{_esc(peer.get("cohort_definition", ""))}. '
+                              f'{_esc(peer.get("aggregate_note") or "")}', _S["body"])]],
+                  colWidths=[45 * mm, None])
+        t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                               ("LINEABOVE", (0, 0), (-1, 0), 2, ACCENT),
+                               ("TOPPADDING", (0, 0), (-1, -1), 8)]))
+        story += [t, Spacer(1, 6)]
+
     market = payload.get("market")
     if market:
         story += reasoned(market, "India as a market for what you sell", ACCENT,
@@ -139,17 +153,6 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
         story += reasoned(th, "India as a place to build technology", GREEN,
                           [(d["name"], d["level"], d["reason"]) for d in th["dimensions"]])
 
-    peer = payload.get("peer_headline")
-    if peer:
-        t = Table([[Paragraph(f'{peer["with_centre"]} of {peer["total"]}', _S["big"]),
-                    Paragraph("<b>of the companies we identify as your closest peers already "
-                              "run a capability centre in India.</b> Your cohort: "
-                              f'{_esc(peer.get("cohort_definition", ""))}.', _S["body"])]],
-                  colWidths=[45 * mm, None])
-        t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                               ("LINEABOVE", (0, 0), (-1, 0), 2, ACCENT),
-                               ("TOPPADDING", (0, 0), (-1, -1), 8)]))
-        story += [t, Spacer(1, 6)]
 
     if payload.get("message"):
         story.append(Paragraph(_esc(payload["message"]), _S["body"]))

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Company lookup: revenue, headcount, founded (1 credit per new company).
     # On by Airopa decision 2026-10-17.
     apollo_enrich: bool = True
+    # One Apollo company search per new prospect (1 credit) finds its European
+    # peer set; checking each peer's India presence is free. Approved 2026-10-17.
+    apollo_peer_search: bool = True
     # India job postings (1 credit per new company). Off.
     apollo_job_postings: bool = False
     apollo_cache_days: int = 30

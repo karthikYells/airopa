@@ -208,14 +208,15 @@ function PeerCard({ peer }: { peer: PeerHeadline }) {
       </div>
       <div>
         <h2 className="text-xl font-bold text-ink">
-          of the companies we identify as your closest peers already run a capability centre in India.
+          {peer.claim ?? "of the companies we identify as your closest peers already run a capability centre in India."}
         </h2>
         <p className="mt-1 text-[15px] text-mute">
           {peer.recent_24m ? `${peer.recent_24m} of them opened within the last 24 months. ` : ""}
           Your cohort: <strong className="text-ink">{peer.cohort_definition}</strong>.
-          {peer.aggregate_india_headcount
-            ? ` Together those centres employ over ${peer.aggregate_india_headcount.toLocaleString()} people.`
-            : ""}
+          {peer.aggregate_note ? ` ${peer.aggregate_note}`
+            : peer.aggregate_india_headcount
+              ? ` Together those centres employ over ${peer.aggregate_india_headcount.toLocaleString()} people.`
+              : ""}
         </p>
       </div>
     </section>

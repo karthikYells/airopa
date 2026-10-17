@@ -411,6 +411,18 @@ def _peer_headline(rec: CompanyRecord, seed_cohort: dict | None) -> dict | None:
     Only from a verified peer set (the seeded examples today). A sector-wide
     penetration estimate is not their peers and is not shown; this block
     returns once the peer database (Section 6.1) exists."""
+    pc = rec.peer_cohort
+    if pc and pc.get("publishable"):
+        agg = pc.get("aggregate_india_profiles") or 0
+        return {
+            "with_centre": pc["with_centre"],
+            "total": pc["known"],
+            "claim": "of the companies we identify as your closest peers already have a team "
+                     "in India with technology roles.",
+            "aggregate_note": (f"Together they have at least {agg:,} people in India on public "
+                               "professional profiles." if agg else None),
+            "cohort_definition": pc["definition"],
+        }
     if not seed_cohort:
         return None
     return {
@@ -470,6 +482,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
                             "for what you sell.")
         # Market access is the point of the engine, so a smaller company gets the
         # same case for the full assessment, framed around selling into India.
+        base["peer_headline"] = _peer_headline(rec, None)
         base["india_status"] = _india_status_line(rec)
         base["own_evidence"] = _own_evidence(rec)
         base["withheld"] = _WITHHELD

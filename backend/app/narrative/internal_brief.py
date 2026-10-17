@@ -113,6 +113,8 @@ def build_brief(outcome: PipelineOutcome, settings: Settings) -> dict:
         "source_urls": rec.source_urls(),
         # Verified newsroom events (headline, date, URL, type). Internal only.
         "news_events": rec.news_events,
+        # Peer set with names and verified India status (Section 5.8). Internal only.
+        "peer_cohort": rec.peer_cohort,
         "signals": {sid: ev.to_dict() for sid, ev in sorted(rec.signals.items())},
     }
     return brief

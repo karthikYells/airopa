@@ -37,7 +37,7 @@ from app.scoring.india_market import score_india_market
 from app.scoring.interactions import apply_interactions
 from app.scoring.technology_hub import score_technology_hub
 from app.signals.collect import collect_from_seed, collect_live, country_code
-from app.signals import sector_cache
+from app.signals import peers, sector_cache
 from app.signals.sector import classify_sector
 
 
@@ -123,6 +123,14 @@ def run_pipeline(
         rec.sector = ref.sector
         outcome.notes.append(f"Sector: {ref.sector} ({sector_method}, conf {sector_conf}).")
         gate_inputs = collect_live(rec, sr, wd, ref, settings, llm=llm, apollo=ap)
+        # Peer set and each peer's verified India status (Section 5.8).
+        if ap_ok:
+            rec.peer_cohort = peers.build_cohort(ap, rec.sector, settings, llm=llm)
+            if rec.peer_cohort:
+                outcome.notes.append(
+                    f"Peers: {rec.peer_cohort['with_centre']} of {rec.peer_cohort['known']} known "
+                    f"({len(rec.peer_cohort['peers'])} found) have an India technology team; "
+                    f"{rec.peer_cohort['credits_used']} credit(s).")
 
     # ---------------- Tier 1: screen ----------------
     rec.gate = run_gate(gate_inputs, settings)

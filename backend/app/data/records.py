@@ -121,6 +121,8 @@ class CompanyRecord:
     hq_city: str | None = None                               # headquarters city (Apollo)
     # Verified annual-report figures for the banner: year, revenue, growth, margins.
     financials: dict | None = None
+    # Peer set with each peer's verified India status (Section 5.8). Names are internal only.
+    peer_cohort: dict | None = None
 
     # scores
     gcc_fit: ScoreResult | None = None

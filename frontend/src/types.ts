@@ -45,6 +45,8 @@ export interface PeerHeadline {
   recent_24m?: number;
   aggregate_india_headcount?: number;
   cohort_definition?: string;
+  claim?: string;          // what the count means, worded by the engine
+  aggregate_note?: string | null;
 }
 
 export interface OwnEvidence {

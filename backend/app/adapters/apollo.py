@@ -39,6 +39,8 @@ class ApolloResult:
     industry: str | None = None
     founded_year: int | None = None
     city: str | None = None
+    naics_codes: list[str] = field(default_factory=list)  # industry codes, for the peer search
+    sic_codes: list[str] = field(default_factory=list)
     employees: int | None = None
     revenue_eur: int | None = None
     total_people_count: int = 0   # all profiles at the domain: Apollo's coverage
@@ -96,6 +98,8 @@ def parse_org(data: dict) -> dict:
         "industry": org.get("industry"),
         "founded_year": org.get("founded_year"),
         "city": org.get("city"),
+        "naics_codes": [str(x) for x in org.get("naics_codes") or []],
+        "sic_codes": [str(x) for x in org.get("sic_codes") or []],
         "employees": org.get("estimated_num_employees"),
         "revenue_eur": int(rev * _USD_TO_EUR) if isinstance(rev, (int, float)) and rev > 0 else None,
     }

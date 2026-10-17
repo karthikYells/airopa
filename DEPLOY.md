@@ -61,6 +61,9 @@ VITE_PUBLIC_ONLY=true VITE_BASE=/engines/india-snapshot/ \
 VITE_API_BASE=https://engine.accessindia.nl npm run build
 ```
 
+On Windows in Git Bash, put `MSYS_NO_PATHCONV=1` in front of that command, or
+Git Bash rewrites `/engines/...` into a Windows path and the page loads blank.
+
 Copy everything in `frontend/dist/` into the site repository at
 `engines/india-snapshot/`, add a card for it on `/engines/`, and deploy the site
 as usual. Netlify detects the `india-snapshot-report` form on deploy; turn on its

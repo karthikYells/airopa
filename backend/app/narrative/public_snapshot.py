@@ -413,7 +413,7 @@ def _peer_headline(rec: CompanyRecord, seed_cohort: dict | None) -> dict | None:
     penetration estimate is not their peers and is not shown; this block
     returns once the peer database (Section 6.1) exists."""
     pc = rec.peer_cohort
-    if pc and pc.get("publishable") and get_settings().publish_peer_headline:
+    if pc and pc.get("publishable") and get_settings().publish_peer_headline and pc.get("with_centre"):
         agg = pc.get("aggregate_india_profiles") or 0
         return {
             "with_centre": pc["with_centre"],
@@ -433,6 +433,17 @@ def _peer_headline(rec: CompanyRecord, seed_cohort: dict | None) -> dict | None:
         "aggregate_india_headcount": seed_cohort.get("aggregate_india_headcount"),
         "cohort_definition": seed_cohort["definition"],
     }
+
+
+def _peer_stats(rec: CompanyRecord, headline: dict | None) -> dict | None:
+    """Peer counts for the summary: the headline's, or a publishable cohort
+    with no peer in India yet (the card is hidden, the first-mover line is not)."""
+    if headline:
+        return headline
+    pc = rec.peer_cohort
+    if pc and pc.get("publishable") and get_settings().publish_peer_headline:
+        return {"with_centre": pc["with_centre"], "total": pc["known"]}
+    return None
 
 
 def build_snapshot(outcome: PipelineOutcome, settings: Settings,
@@ -492,7 +503,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
         if settings.publish_reference_scores:
             base["indicative_scale"] = indicative_scale(rec)
         base["own_evidence"] = _own_evidence(rec)
-        base["summary"] = build_summary(rec, base["peer_headline"])
+        base["summary"] = build_summary(rec, _peer_stats(rec, base["peer_headline"]))
         base["withheld"] = _WITHHELD
         base["lead_capture"] = {
             "type": "sector_briefing",
@@ -514,7 +525,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
     if settings.publish_reference_scores:                          # block 6, ranges only
         base["indicative_scale"] = indicative_scale(rec)
     base["own_evidence"] = _own_evidence(rec)                      # block 7
-    base["summary"] = build_summary(rec, base["peer_headline"])    # the short version, under block 1
+    base["summary"] = build_summary(rec, _peer_stats(rec, base["peer_headline"]))  # under block 1
     base["withheld"] = _WITHHELD                                   # block 8
     base["lead_capture"] = {                                       # block 9
         "type": "business_case",

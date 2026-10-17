@@ -19,9 +19,12 @@ def build_summary(rec: CompanyRecord, peer: dict | None) -> dict | None:
     entity_no_tech = gate is GateVerdict.CLEAR
     has_centre = gate is GateVerdict.CONFIRMED
     peers_ahead = bool(peer and peer.get("total") and peer["with_centre"] / peer["total"] >= 0.5)
+    first_mover = bool(peer and peer.get("total") and peer["with_centre"] == 0)
 
     # Headline: the gap between them and their peers, or them and the market.
-    if peers_ahead and greenfield:
+    if first_mover and not has_centre:
+        headline = "None of your closest peers has a team in India yet. The first to move sets the terms."
+    elif peers_ahead and greenfield:
         headline = "Most of your closest peers already build in India. You do not, yet."
     elif peers_ahead and entity_no_tech:
         headline = "Your peers build technology in India. You have an entity there, but no team."
@@ -35,7 +38,9 @@ def build_summary(rec: CompanyRecord, peer: dict | None) -> dict | None:
         headline = "You are already in India. The question is whether you are using it fully."
 
     body = []
-    if peer and peer.get("total"):
+    if first_mover:
+        body.append(f"None of your {peer['total']} closest European peers has a technology team in India yet.")
+    elif peer and peer.get("total"):
         body.append(f"{peer['with_centre']} of your {peer['total']} closest European peers already have "
                     "technology teams in India.")
     fin = rec.financials or {}
@@ -74,6 +79,8 @@ def build_summary(rec: CompanyRecord, peer: dict | None) -> dict | None:
         return None   # too little to say anything sharp; better silent than generic
     if peers_ahead:
         close = "Every year you wait, their cost and capability lead compounds."
+    elif first_mover and not has_centre:
+        close = "Moving first means the best partners, people and cities are still yours to choose."
     elif has_centre:
         close = "The full business case shows how far your centre could go."
     else:

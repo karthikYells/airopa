@@ -33,3 +33,9 @@ def test_entity_without_tech_team():
 
 def test_too_little_to_say_is_silent():
     assert build_summary(_rec(GateVerdict.CAUTION), None) is None
+
+
+def test_no_peer_in_india_is_a_first_mover_message():
+    s = build_summary(_rec(GateVerdict.CLEAR_GREENFIELD, FIN), {"with_centre": 0, "total": 14})
+    assert s["headline"].startswith("None of your closest peers has a team in India yet")
+    assert "None of your 14 closest European peers" in s["body"] and "still yours" in s["close"]

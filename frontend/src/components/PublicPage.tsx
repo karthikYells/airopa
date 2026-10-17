@@ -297,7 +297,8 @@ function ReportForm({ data }: { data: Snapshot }) {
     setBusy(true);
     try {
       const status = await requestReport({
-        run_id: data.run_id!, name: name.trim(), email: email.trim(), company: company.trim(),
+        run_id: data.run_id!, snapshot_token: data.snapshot_token ?? "",
+        name: name.trim(), email: email.trim(), company: company.trim(),
         role, call_partner: call, allow_personal: allowPersonal, bot_field: bot,
       });
       void copyToNetlifyForms({

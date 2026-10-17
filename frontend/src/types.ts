@@ -38,6 +38,7 @@ export interface Company {
 
 export interface Snapshot {
   run_id?: string;
+  snapshot_token?: string; // signed copy, so the report works after an engine restart
   mode: string;
   reason?: string;
   message?: string;

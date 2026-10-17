@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     # The internal view (GCC Fit) has no password by Airopa decision, so it is
     # switched off on the public deployment and used locally only.
     enable_internal: bool = True
+    # Signs the snapshot the page carries, so reports work after a restart.
+    # Any long random string; the same on every server instance.
+    snapshot_signing_key: str = ""
 
     # --- geography (X14) ---
     target_geography: str = "NL,BE,DE,UK,Nordics,FR"

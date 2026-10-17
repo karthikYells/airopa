@@ -19,6 +19,7 @@ export async function scoreCompany(url: string): Promise<Snapshot> {
 
 export interface ReportRequest {
   run_id: string;
+  snapshot_token: string;
   name: string;
   email: string;
   company: string;

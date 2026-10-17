@@ -10,47 +10,64 @@ the same lead flow.
 visitor ── accessindia.nl/engines/india-snapshot/   (static page, on Netlify with the rest of the site)
               │  POST /api/score, /api/report  (direct, CORS limited to accessindia.nl)
               ▼
-          engine.accessindia.nl                    (this Python engine, on a small server)
+          Google Cloud Run, europe-west1 (Belgium)  (this Python engine; free tier)
               ├─ Apollo, Wikidata, company websites, Claude
-              ├─ SQLite: every run and every lead
               └─ email: PDF from connect@airopa.co (copy to connect@airopa.co)
 ```
 
-Why the engine is not a Netlify Function like `/api/send-report`: it is Python,
-and a run takes 10 to 60 seconds, longer than Netlify allows a function or a proxy
-to wait. So the page calls the engine on its own subdomain.
+Why the engine is not a Netlify Function like `/api/send-report`: it reads other
+companies' websites and uses secret API keys (neither can happen in a browser),
+it is Python, and a run takes 10 to 60 seconds, longer than Netlify functions are
+allowed to run. So it runs on Cloud Run and the page calls it directly.
 
-Every lead is kept twice, as on the business case engine: in **Netlify Forms**
-(form `india-snapshot-report`, which notifies connect@airopa.co) and in the
-engine's own database with the PDF that was sent.
+**Cloud Run keeps no files between restarts** (it stops when idle, which is what
+keeps it free). So:
+- every lead is kept in **Netlify Forms** (form `india-snapshot-report`, which
+  notifies connect@airopa.co) and connect@airopa.co gets a copy of every report;
+- the page carries a **signed copy** of the snapshot, so "email me the report"
+  works even if the engine restarted in between;
+- caches (24-hour snapshots, Apollo lookups, saved sectors) last only while an
+  instance is running.
 
-## 1. The engine server
+## 1. The engine on Google Cloud Run (free tier)
 
-Any host that runs a Python web service with a persistent disk works. Render is
-the simplest (about USD 7 a month for the smallest paid instance plus a 1 GB disk;
-the free tier sleeps and loses the database, so it is not suitable).
+At this volume it stays inside Cloud Run's free tier (2 million requests,
+180,000 vCPU-seconds and 360,000 GiB-seconds a month). `--max-instances 2` caps
+what it can ever use. Google requires a card on the billing account; set a budget
+alert of EUR 1 so you are told if anything is ever charged.
 
-- Root directory: `backend`
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Persistent disk mounted at `/opt/render/project/src/backend/data`
-- Environment (secrets go in the host's settings, never in git):
+One-time setup (in a browser):
+1. console.cloud.google.com, sign in with the Airopa Google account, create a
+   project `accessindia-engine`, and link a billing account.
+2. Billing > Budgets & alerts > create a budget of EUR 1 with email alerts.
 
-| Variable | Production value |
+Deploy (from the repository root, with the Google Cloud CLI installed and
+`gcloud auth login` done):
+
+```bash
+gcloud config set project accessindia-engine
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+gcloud run deploy india-snapshot --source backend --region europe-west1 \
+  --allow-unauthenticated --memory 1Gi --cpu 1 --timeout 300 \
+  --max-instances 2 --concurrency 10 \
+  --set-env-vars "CORS_ORIGINS=https://accessindia.nl,ENABLE_INTERNAL=false,PUBLISH_REFERENCE_SCORES=false,MAIL_PROVIDER=graph,MAIL_NOTIFY=connect@airopa.co,PUBLIC_SITE_URL=https://accessindia.nl/engines/india-snapshot/"
+```
+
+The command prints the engine's address, `https://india-snapshot-….run.app`.
+`backend/.gcloudignore` keeps `.env`, local data and tests out of the upload.
+
+Then add the **secrets** in the Cloud Run console (india-snapshot > Edit & deploy
+new revision > Variables & secrets), never in git:
+
+| Variable | Value |
 |---|---|
 | `ANTHROPIC_API_KEY` | workspace key (`sk-ant-api03-…`) |
 | `APOLLO_API_KEY` | Airopa Apollo key |
-| `CORS_ORIGINS` | `https://accessindia.nl,https://www.accessindia.nl` |
-| `ENABLE_INTERNAL` | `false` (the internal view has no password; keep it local) |
-| `PUBLISH_REFERENCE_SCORES` | `false` until the India data source is approved |
-| `MAIL_PROVIDER` | `graph` (see step 3) |
 | `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | the same values as in Netlify for `send-report` |
-| `MAIL_NOTIFY` | `connect@airopa.co` (gets a copy of every report) |
-| `PUBLIC_SITE_URL` | `https://accessindia.nl/engines/india-snapshot/` |
+| `SNAPSHOT_SIGNING_KEY` | any long random string (keep it the same from now on) |
 
-Then add the custom domain `engine.accessindia.nl` on the host and create the
-DNS record it asks for (a CNAME) wherever accessindia.nl's DNS is managed
-(Netlify DNS if the domain is on Netlify).
+Optional later: map `engine.accessindia.nl` to the service (Cloud Run > Manage
+custom domains, supported in europe-west1) and rebuild the page with that address.
 
 ## 2. The page in the accessindia.nl site
 
@@ -58,8 +75,10 @@ DNS record it asks for (a CNAME) wherever accessindia.nl's DNS is managed
 cd frontend
 npm install
 VITE_PUBLIC_ONLY=true VITE_BASE=/engines/india-snapshot/ \
-VITE_API_BASE=https://engine.accessindia.nl npm run build
+VITE_API_BASE=https://india-snapshot-XXXX.run.app npm run build
 ```
+
+Use the address Cloud Run printed in step 1 for `VITE_API_BASE`.
 
 On Windows in Git Bash, put `MSYS_NO_PATHCONV=1` in front of that command, or
 Git Bash rewrites `/engines/...` into a Windows path and the page loads blank.
@@ -79,9 +98,9 @@ mailbox). Copy `MS_TENANT_ID`, `MS_CLIENT_ID` and `MS_CLIENT_SECRET` from Netlif
 Project configuration > Environment variables into the engine host's settings.
 Nothing else is needed; the email uses the same design as the business case email.
 
-Until those are set, requests are saved as `queued` with their PDF in
-`backend/data/reports/` for a person to send, and the visitor is told the report
-will arrive within one business day. Personal email addresses are always queued
+Until those are set, requests are marked `queued` and the visitor is told the
+report will arrive within one business day; the team follows up from the Netlify
+Forms notification (on Cloud Run the saved PDF does not survive a restart). Personal email addresses are always queued
 for a person, as on the business case engine. (SMTP and Resend are also supported
 via `MAIL_PROVIDER=smtp` or `resend`.)
 

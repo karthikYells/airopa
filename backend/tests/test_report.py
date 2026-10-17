@@ -1,7 +1,10 @@
 """Email-report flow (Section 9.5), offline: no mail provider, no network."""
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
+
+from app.api import ratelimit
 
 from app.api.email_check import check_email
 from app.data.store import save_run
@@ -9,6 +12,13 @@ from app.main import app
 from app.reports.pdf import build_pdf
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Each test is a fresh visitor; the limiter itself is exercised separately."""
+    ratelimit._hits.clear()
+    yield
 
 PAYLOAD = {
     "mode": "STANDARD",
@@ -81,3 +91,18 @@ def test_email_is_branded_and_escapes_visitor_input():
     assert subject == "Your India Opportunity Snapshot: Example GmbH"
     assert "<script>" not in html and "&lt;script&gt;" in html
     assert "Access India" in html and "GCC Fit" not in html
+
+
+def test_report_survives_restart_via_signed_snapshot():
+    from app.api.signing import sign
+    token = sign("gone-after-restart", "example.de", PAYLOAD)
+    body = _body(run_id="gone-after-restart", snapshot_token=token)
+    assert client.post("/api/report", json=body).json()["status"] == "queued"
+    tampered = token[:-4] + ("0000" if not token.endswith("0000") else "1111")
+    assert client.post("/api/report", json={**body, "snapshot_token": tampered}).status_code == 404
+
+
+def test_report_rate_limit_per_visitor():
+    for _ in range(5):
+        client.post("/api/report", json=_body())
+    assert client.post("/api/report", json=_body()).status_code == 429

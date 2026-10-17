@@ -12,6 +12,7 @@ from app.adapters.llm import LLM
 from app.api.abuse import is_blocklisted, validate
 from app.api.email_check import check_email
 from app.api.ratelimit import limit
+from app.api.signing import sign, verify
 from app.config import get_settings
 from app.data.store import get_run, latest_public_run, save_lead, save_run
 from app.reports.email import build_email
@@ -41,7 +42,8 @@ def score_company(req: ScoreRequest, request: Request) -> dict:
         # Repeated lookups of the same company cost nothing (Section 9.7).
         cached = latest_public_run(host, settings.snapshot_cache_hours)
         if cached is not None:
-            return {**cached["payload"], "run_id": cached["id"]}
+            return {**cached["payload"], "run_id": cached["id"],
+                    "snapshot_token": sign(cached["id"], host, cached["payload"])}
         limit(request, "score", settings.public_score_limit_per_hour, 3600)
     if not ok:
         return {"mode": "REJECTED", "reason": reason,
@@ -68,11 +70,12 @@ def score_company(req: ScoreRequest, request: Request) -> dict:
     assert_public_safe(payload, forbidden_names=forbidden)
 
     run_id = save_run(host, "public", mode.value, payload)
-    return {**payload, "run_id": run_id}
+    return {**payload, "run_id": run_id, "snapshot_token": sign(run_id, host, payload)}
 
 
 class ReportRequest(BaseModel):
     run_id: str
+    snapshot_token: str = Field(default="", max_length=200_000)
     name: str = Field(min_length=1, max_length=80)
     email: str = Field(max_length=254)
     company: str = Field(min_length=1, max_length=80)
@@ -99,7 +102,12 @@ def request_report(req: ReportRequest, request: Request) -> dict:
 
     run = get_run(req.run_id)
     if run is None or run["surface"] != "public":
-        raise HTTPException(status_code=404, detail="snapshot_not_found")
+        # The server may have restarted since the snapshot (Cloud Run keeps no
+        # files): fall back to the signed copy the page sent back.
+        signed = verify(req.snapshot_token) if req.snapshot_token else None
+        if signed is None or signed.get("id") != req.run_id:
+            raise HTTPException(status_code=404, detail="snapshot_not_found")
+        run = {"id": signed["id"], "host": signed["host"], "payload": signed["payload"]}
     payload = run["payload"]
 
     pdf = build_pdf(payload, recipient_name=req.name)

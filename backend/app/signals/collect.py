@@ -23,6 +23,7 @@ from app.fixtures.demo_companies import Seed
 from app.gate.india_gate import GateInputs
 from app.gate.title_classifier import classify_titles
 from app.reference.india_reference import SectorReference, AS_OF, SOURCE
+from app.signals.newsroom import apply_events, verify_events
 from app.signals.sector import classify_sector
 
 # Wikidata country label -> Airopa geography code (X14).
@@ -222,6 +223,15 @@ def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
 
     if apollo is not None and apollo.found:
         _apply_apollo_firmographics(rec, apollo)
+
+    # Dated events from their own newsroom (after Apollo, so a press release
+    # announcing a new leader outranks "no change found").
+    if llm is not None and getattr(llm, "enabled", False) and scrape.news_pages:
+        events = verify_events(
+            llm.extract_news_events(rec.resolved_name or scrape.resolved_host or "", scrape.news_pages),
+            scrape.news_pages)
+        rec.news_events = events
+        apply_events(rec, events)
 
     # --- scope from the live tech stack ---
     if scrape.tech_stack:

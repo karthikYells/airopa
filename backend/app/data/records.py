@@ -117,6 +117,7 @@ class CompanyRecord:
     gate: GateResult | None = None
     exclusions: list[ExclusionHit] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
+    news_events: list[dict] = field(default_factory=list)   # verified newsroom events (internal)
 
     # scores
     gcc_fit: ScoreResult | None = None

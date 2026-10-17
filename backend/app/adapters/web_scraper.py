@@ -53,6 +53,38 @@ _INDIA_WORD = re.compile(
     r"gurugram|noida|kolkata|ahmedabad)\b", re.IGNORECASE)
 
 # Other pages worth a look for firmographics and India presence.
+# Their own newsroom / press releases (EN, NL, DE, FR).
+_NEWS_HINTS = ["newsroom", "news", "press", "media", "nieuws", "pers", "presse",
+               "aktuelles", "neuigkeiten", "actualites", "actualités"]
+
+# Tried only when the menu shows no newsroom; stops at the first "429 Too Many Requests".
+_NEWS_PATHS = ["/news", "/newsroom", "/press", "/en/news", "/nieuws", "/presse"]
+
+# Annual / integrated reports, usually PDFs on the site or a CDN.
+_REPORT_HINTS = ["annual report", "annual-report", "annualreport", "integrated report",
+                 "annual review", "jaarverslag", "jaarrapport", "geschäftsbericht",
+                 "geschaeftsbericht", "jahresbericht", "rapport annuel", "rapport-annuel"]
+
+
+def _find_report_links(html: str, base: str) -> list[str]:
+    """Links to annual reports: anchor text or URL names one. PDFs may live on a
+    CDN, so other hosts are allowed here (and only here)."""
+    out: list[str] = []
+    try:
+        for a in HTMLParser(html).css("a"):
+            href = a.attributes.get("href") or ""
+            label = (a.text() or "").lower()
+            hl = href.lower()
+            if any(h in hl or h in label for h in _REPORT_HINTS):
+                full = urljoin(base, href)
+                if full.startswith("http") and full not in out:
+                    out.append(full)
+    except Exception:
+        pass
+    # Prefer direct PDFs.
+    return sorted(out, key=lambda u: 0 if u.lower().split("?")[0].endswith(".pdf") else 1)
+
+
 _INFO_HINTS = ["about", "about-us", "company", "who-we-are", "unternehmen",
                "ueber-uns", "over-ons", "locations", "location", "contact",
                "standorte", "global", "worldwide", "offices", "investor",
@@ -106,6 +138,9 @@ class ScrapeResult:
     india_office_detected: bool = False
     india_checks: int = 0                                  # India-targeted checks run
     page_title_name: str | None = None                     # company name guess
+    news_pages: list[dict] = field(default_factory=list)   # [{url, text}] own newsroom
+    annual_report_urls: list[str] = field(default_factory=list)  # PDF links, own site
+    error: str | None = None                               # why a crawl stopped early
 
 
 def _normalise_url(raw: str) -> str:
@@ -303,6 +338,7 @@ def scrape(input_url: str) -> ScrapeResult:
                 except Exception:
                     continue
 
+            report_links = _find_report_links(home_html, str(home.url))
             for iu in info_urls:
                 try:
                     ip = c.get(iu)
@@ -316,9 +352,38 @@ def scrape(input_url: str) -> ScrapeResult:
                         elif any(h in itext.lower() for h in _INDIA_HINTS):
                             res.india_pages.append(str(ip.url))
                         res.homepage_text += "\n" + itext[:6000]  # enrich product text
+                        report_links += _find_report_links(ip.text, str(ip.url))
                 except Exception:
                     continue
-    except Exception:
+            res.annual_report_urls = list(dict.fromkeys(report_links))[:3]
+
+            # Their own newsroom: dated press releases for the timing panel (PRESS).
+            # Menus are often JavaScript, so fall back to the usual addresses.
+            news_urls = [u for u in _find_links(home_html, str(home.url), _NEWS_HINTS, 6)
+                         if "newsletter" not in u.lower() and "subscribe" not in u.lower()]
+            root = f"{urlparse(str(home.url)).scheme}://{urlparse(str(home.url)).netloc}"
+            news_urls += [root + p for p in _NEWS_PATHS]
+            seen_final: set[str] = set()
+            for nu in list(dict.fromkeys(news_urls)):
+                if len(res.news_pages) >= 2:
+                    break
+                try:
+                    np_ = c.get(nu)
+                    if np_.status_code == 429:
+                        break  # the site asks us to slow down: stop, don't keep probing
+                    final = str(np_.url).rstrip("/")
+                    if np_.status_code >= 400 or final in seen_final or final == str(home.url).rstrip("/"):
+                        continue
+                    seen_final.add(final)
+                    ntext = _text(np_.text)
+                    if len(ntext) < 400:
+                        continue  # empty shell (JavaScript-only page)
+                    res.pages_fetched.append(str(np_.url))
+                    res.news_pages.append({"url": str(np_.url), "text": ntext[:15000]})
+                except Exception:
+                    continue
+    except Exception as e:  # keep what was collected; record why it stopped
+        res.error = f"{type(e).__name__}: {str(e)[:200]}"
         return res
 
     blob = (res.homepage_text + " " + " ".join(res.job_titles)).lower()

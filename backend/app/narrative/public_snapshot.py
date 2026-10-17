@@ -161,6 +161,15 @@ def _india_status_line(rec: CompanyRecord) -> str:
     return "Your India status could not be confirmed from public sources."
 
 
+def _month_year(iso: str) -> str:
+    try:
+        y, m = int(iso[:4]), int(iso[5:7])
+        return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
+                "Nov", "Dec"][m - 1] + f" {y}"
+    except (ValueError, IndexError):
+        return iso
+
+
 def _resolved(rec: CompanyRecord, sid: str):
     ev = rec.get(sid)
     return ev if ev is not None and ev.is_resolved else None
@@ -192,16 +201,25 @@ def _own_evidence(rec: CompanyRecord) -> list[dict]:
 
     # Panel 2 — dated pressure, from PRESS signals and their own estate.
     bullets, as_of = [], None
-    for sid, text in [("PRESS.05", "An **S/4HANA migration** is in flight or ECC end of support applies."),
+    # Generic, dated wording: their own events, never a third party's name
+    # (an acquisition headline names the target; the page does not).
+    for sid, text in [("PRESS.03", "A **cost programme** was announced{when}."),
+                      ("PRESS.04", "A **restructuring** was announced{when}."),
+                      ("PRESS.05", "An **ERP / S/4HANA programme** is under way{when}."),
+                      ("PRESS.09", "An **acquisition** was announced{when}, with integration work to follow."),
+                      ("PRESS.18", "A **site opening, closure or move** was announced{when}."),
                       ("PRESS.10", "A **new technology executive** was appointed in the last 12 months."),
-                      ("PRESS.11", "A **new CEO, CFO or COO** was appointed in the last 12 months."),
-                      ("PRESS.03", "A **cost programme** with a stated target and deadline is public."),
-                      ("PRESS.01", "Your latest results show **operating margin under pressure**.")]:
+                      ("PRESS.11", "A **new CEO, CFO or COO** was appointed{when}."),
+                      ("PRESS.01", "Your latest results show **operating margin under pressure**{when}.")]:
         ev = _resolved(rec, sid)
         # Only a real, dated event that is still fresh: a checked "no" is not news.
         if (ev and ev.as_of_date and ev.value not in (False, None, 0, "", [], {})
                 and freshness_weight(ev.as_of_date) > 0):
-            bullets.append(text); as_of = as_of or ev.as_of_date
+            from_news = ev.source_type is not None and ev.source_type.value == "company_site"
+            when = (f" in your newsroom ({_month_year(ev.as_of_date)})" if from_news
+                    else " in the last 12 months" if sid == "PRESS.11" else "")
+            bullets.append(text.format(when=when))
+            as_of = max(as_of or "", ev.as_of_date)
     erp = _resolved(rec, "SCOPE.01")
     if erp and _resolved(rec, "PRESS.05"):
         erp = None  # the S/4HANA bullet above already covers their ERP

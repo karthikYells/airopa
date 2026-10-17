@@ -111,6 +111,8 @@ def build_brief(outcome: PipelineOutcome, settings: Settings) -> dict:
         },
         "recommended_model": _recommended_model(rec) if rec.reached_tier3 else None,
         "source_urls": rec.source_urls(),
+        # Verified newsroom events (headline, date, URL, type). Internal only.
+        "news_events": rec.news_events,
         "signals": {sid: ev.to_dict() for sid, ev in sorted(rec.signals.items())},
     }
     return brief

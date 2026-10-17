@@ -103,6 +103,36 @@ class LLM:
             out[t] = self._title_cache.get(t, (TitleClass.AMBIGUOUS, 0.3))
         return out
 
+    # --- small model: dated events from the company's own newsroom (PRESS) ---
+    def extract_news_events(self, company: str, pages: list[dict]) -> list[dict]:
+        """Extraction only (Section 1.4): list the dated events that appear on the
+        pages. The caller verifies every headline against the page text and drops
+        anything it cannot find, so nothing the model adds survives."""
+        if not self.enabled or not pages:
+            return []
+        system = (
+            "You extract dated company events from a company's own news pages. Only "
+            "use what is written on the pages. For each news item that has a visible "
+            "date, return the headline copied EXACTLY as written, the date as "
+            "YYYY-MM-DD (or YYYY-MM if no day), the page URL it is on, and one type: "
+            "cost_programme (savings or efficiency programme, cost targets), "
+            "restructuring (reorganisation, layoffs, hiring freeze), erp_migration "
+            "(SAP S/4HANA or ERP programme), acquisition (they acquire or merge), "
+            "leadership_change (new CEO, CFO, COO, CIO, CTO), facility_change (plant "
+            "or site opened, closed or relocated), results (financial results), "
+            "india_expansion (anything about India), other. Skip items without a date. "
+            'Reply with JSON only: {"events": [{"headline": "...", "date": "...", '
+            '"url": "...", "type": "..."}]}'
+        )
+        body = "\n\n".join(f"PAGE {p['url']}\n{p['text'][:12000]}" for p in pages[:2])
+        try:
+            raw = self._complete(self._settings.llm_model_small, system,
+                                 f"Company: {company}\n\n{body}", 3000)
+            data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+            return [e for e in data.get("events", []) if isinstance(e, dict)][:40]
+        except Exception:
+            return []
+
     # --- small model: sector classification for the reference lookup ---
     def classify_sector(self, text: str, sector_keys: list[str], name: str | None = None,
                         industry: str | None = None) -> str:

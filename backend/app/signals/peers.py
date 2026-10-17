@@ -44,12 +44,53 @@ def _headers(settings: Settings) -> dict:
             "Content-Type": "application/json"}
 
 
-def peer_filters(ap: ApolloResult) -> dict | None:
-    """Search filters from the prospect's own Apollo record. None when there is
-    nothing to match an industry on: the cohort is never guessed."""
+# Industry codes (NAICS 2017, four digits) per sector key: a fixed table we own,
+# used with the prospect's own Apollo codes. Codes are far tighter than
+# Apollo's keyword tags, which returned fashion houses for a valve maker.
+SECTOR_NAICS = {
+    "automotive_components": ["3363"],
+    "industrial_machinery": ["3331", "3332", "3333", "3339"],
+    "precision_components": ["3329", "3327", "3336"],
+    "electronics_hardware": ["3341", "3342", "3344", "3345"],
+    "medical_devices": ["3391", "3345"],
+    "pharma_chemicals": ["3254", "3251", "3252", "3255", "3259"],
+    "software_saas": ["5112", "5182", "5415"],
+    "industrial_automation": ["3345", "3353", "3339"],
+    "building_construction": ["2362", "2371", "2382", "3273", "3323"],
+    "logistics_distribution": ["4931", "4841", "4885", "4238"],
+    "consumer_goods": ["3352", "3399", "3256", "3371", "3162"],
+    "energy_utilities": ["2211", "2212", "2111"],
+    "financial_services": ["5221", "5231", "5241"],
+    "professional_services": ["5416", "5413", "5419"],
+    "food_beverage": ["3119", "3114", "3115", "3121"],
+    "aerospace_defence": ["3364"],
+    "textiles": ["3131", "3132", "3133", "3152"],
+}
+
+
+# Sectors close enough to count as peers of each other. A valve maker's peers
+# include machinery and automation companies; a fashion house never is one.
+_FAMILIES = [
+    {"precision_components", "industrial_machinery", "industrial_automation", "automotive_components"},
+    {"electronics_hardware", "industrial_automation", "medical_devices"},
+    {"medical_devices", "pharma_chemicals"},
+    {"software_saas", "professional_services", "financial_services"},
+    {"building_construction"}, {"logistics_distribution"}, {"consumer_goods", "textiles"},
+    {"energy_utilities"}, {"food_beverage"}, {"aerospace_defence"},
+]
+
+
+def same_family(a: str | None, b: str | None) -> bool:
+    return bool(a and b) and (a == b or any(a in f and b in f for f in _FAMILIES))
+
+
+def peer_filters(ap: ApolloResult, sector_key: str | None = None) -> dict | None:
+    """Search filters from the prospect's own Apollo record and its sector. None
+    when there is nothing to match an industry on: the cohort is never guessed."""
     body: dict = {"organization_locations": ["Europe"], "per_page": 40, "page": 1}
-    if ap.naics_codes:
-        body["organization_naics_codes"] = [ap.naics_codes[0][:4]]
+    codes = sorted({c[:4] for c in ap.naics_codes if len(c) >= 4} | set(SECTOR_NAICS.get(sector_key or "", [])))
+    if codes:
+        body["organization_naics_codes"] = codes
     elif ap.sic_codes:
         body["organization_sic_codes"] = [ap.sic_codes[0][:4]]
     elif ap.industry:
@@ -87,12 +128,13 @@ def parse_peers(data: dict, own_domain: str, own_name: str | None,
     return out
 
 
-def discover(ap: ApolloResult, settings: Settings) -> dict | None:
-    """The prospect's peer set, from the store or one Apollo company search."""
+def discover(ap: ApolloResult, settings: Settings, sector_key: str | None = None) -> dict | None:
+    """The prospect's peer set, from the store or one Apollo company search.
+    A stored search made with different filters is redone."""
+    body = peer_filters(ap, sector_key)
     cached = kv.get("cohorts", ap.domain)
-    if _fresh(cached):
+    if _fresh(cached) and cached.get("filters") == body:
         return cached
-    body = peer_filters(ap)
     if body is None or not settings.apollo_peer_search:
         return None
     try:
@@ -187,14 +229,20 @@ def build_cohort(ap: ApolloResult, sector: str | None, settings: Settings, llm=N
     A candidate from the company search is a peer only if its own homepage puts
     it in the prospect's sector: the search's industry match alone is too loose
     (it returned fashion houses for a components maker)."""
-    found = discover(ap, settings)
+    found = discover(ap, settings, sector_key)
     if not found or not found.get("peers"):
         return None
     candidates = found["peers"]
     if sector_key:
         with ThreadPoolExecutor(max_workers=8) as pool:
             keys = list(pool.map(lambda p: peer_sector(p, llm), candidates))
-        candidates = [p for p, k in zip(candidates, keys) if k == sector_key]
+        # Keep: same sector family, or homepage unreadable (the industry codes
+        # already matched). Drop: the peer's own homepage says another family.
+        # Closest first: same sector, then unreadable homepage, then the wider family.
+        rank = {True: 0, None: 1, False: 2}
+        kept = [(rank[k == sector_key if k else None], i, p) for i, (p, k) in enumerate(zip(candidates, keys))
+                if k is None or same_family(k, sector_key)]
+        candidates = [p for _, _, p in sorted(kept, key=lambda x: (x[0], x[1]))]
     candidates = candidates[:_MAX_PEERS]
     if not candidates:
         return None
@@ -207,7 +255,7 @@ def build_cohort(ap: ApolloResult, sector: str | None, settings: Settings, llm=N
         "known": len(known),
         "with_centre": len(with_centre),
         "aggregate_india_profiles": sum(p["india_profiles"] for p in with_centre),
-        "definition": f"European {(sector or 'industry').lower()} companies{_band(ap.revenue_eur)}",
+        "definition": f"European {(sector or 'industrial').lower()} and related companies{_band(ap.revenue_eur)}",
         "publishable": len(known) >= _MIN_KNOWN,
         "credits_used": found.get("credits_used", 0),
     }

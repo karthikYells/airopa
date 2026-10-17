@@ -64,10 +64,12 @@ export function SiteHeader({ crumb, title, accent, intro }: {
 
 export function SiteFooter() {
   return (
-    <footer className="mx-auto mt-14 flex max-w-[1180px] flex-wrap justify-between gap-3 border-t border-line px-4 py-6 text-sm text-mute sm:px-10">
-      <span>© 2026 Access India Initiative (AII) Netherlands · <a href="/privacy/">Privacy</a></span>
-      <span>Eindhoven · Founding partner <a href="https://www.airopa.co" target="_blank" rel="noopener">Airopa Global</a></span>
-    </footer>
+    <div className="mt-24 bg-navy">
+      <footer className="mx-auto flex max-w-[1180px] flex-wrap justify-between gap-4 px-4 py-6 text-sm text-band-muted sm:px-10">
+        <span>© 2026 Access India Initiative (AII) Netherlands · <a className="text-band-fg" href="/privacy/">Privacy</a></span>
+        <span>Eindhoven · Founding partner <a className="text-band-fg" href="https://www.airopa.co" target="_blank" rel="noopener">Airopa Global</a></span>
+      </footer>
+    </div>
   );
 }
 

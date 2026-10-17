@@ -57,7 +57,7 @@ def _fit(rec: CompanyRecord) -> DimensionScore:
     if price == "strong" and adapt == "minimal":
         pts = 18.0
     elif price in ("strong", "moderate") and adapt in ("minimal", "moderate"):
-        pts = 14.0
+        pts = 12.0   # 12-16 anchor: segment exists, a variant or price tier is needed
     else:
         pts = 8.0
     return DimensionScore(name, pts, mx,

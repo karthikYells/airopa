@@ -49,3 +49,9 @@ def test_consumer_goods_fit_reads_moderate_after_review():
     m = _market_insights(_rec("consumer_goods"), S)
     fit = next(d for d in m["dimensions"] if d["name"] == "Product and segment fit")
     assert fit["level"] in ("Moderate", "Strong")
+
+
+def test_moderate_adaptation_reads_as_variant_needed():
+    m = _market_insights(_rec("consumer_goods"), S)
+    fit = next(d for d in m["dimensions"] if d["name"] == "Product and segment fit")
+    assert fit["level"] == "Moderate" and "variant or price tier" in fit["insight"]

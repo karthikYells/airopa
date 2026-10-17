@@ -210,13 +210,16 @@ def _own_evidence(rec: CompanyRecord) -> list[dict]:
                       ("PRESS.18", "A **site opening, closure or move** was announced{when}."),
                       ("PRESS.10", "A **new technology executive** was appointed in the last 12 months."),
                       ("PRESS.11", "A **new CEO, CFO or COO** was appointed{when}."),
-                      ("PRESS.01", "Your latest results show **operating margin under pressure**{when}.")]:
+                      ("PRESS.01", "Your latest results show **operating margin under pressure**{when}."),
+                      ("PRESS.02", "**Profit is growing slower than revenue**{when}.")]:
         ev = _resolved(rec, sid)
         # Only a real, dated event that is still fresh: a checked "no" is not news.
         if (ev and ev.as_of_date and ev.value not in (False, None, 0, "", [], {})
                 and freshness_weight(ev.as_of_date) > 0):
             from_news = ev.source_type is not None and ev.source_type.value == "company_site"
+            from_report = ev.source_type is not None and ev.source_type.value == "filing"
             when = (f" in your newsroom ({_month_year(ev.as_of_date)})" if from_news
+                    else f" in your FY{ev.as_of_date[:4]} annual report" if from_report
                     else " in the last 12 months" if sid == "PRESS.11" else "")
             bullets.append(text.format(when=when))
             as_of = max(as_of or "", ev.as_of_date)

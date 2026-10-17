@@ -133,6 +133,33 @@ class LLM:
         except Exception:
             return []
 
+    # --- small model: key figures from a published annual report (SCALE/PRESS) ---
+    def extract_financials(self, company: str, pages: list[tuple[int, str]]) -> dict:
+        """Extraction only: revenue and operating profit per year as PRINTED on
+        the given pages. The caller checks each printed figure is on its page."""
+        if not self.enabled or not pages:
+            return {}
+        system = (
+            "You read pages of a company's annual report and extract its key figures. "
+            "Only use numbers printed on the pages. Return the currency (ISO code), the "
+            "unit the figures are in (units, thousand, million or billion), and for up to "
+            "4 financial years: the year, revenue (net sales / turnover / omzet / Umsatz) "
+            "and operating profit (EBIT / EBITA / operating result), each copied EXACTLY as "
+            "printed (e.g. \"3,215.4\") together with the page number it is printed on. "
+            "Use group/consolidated figures, not segments. If a figure is not printed, use null. "
+            'Reply with JSON only: {"currency": "EUR", "unit": "million", "years": [{"year": 2025, '
+            '"revenue": "3,215.4", "revenue_page": 12, "operating_profit": "401.2", '
+            '"operating_profit_page": 12}]}'
+        )
+        body = "\n\n".join(f"=== PAGE {n} ===\n{t[:6000]}" for n, t in pages)
+        try:
+            raw = self._complete(self._settings.llm_model_small, system,
+                                 f"Company: {company}\n\n{body}", 1500)
+            data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
     # --- small model: sector classification for the reference lookup ---
     def classify_sector(self, text: str, sector_keys: list[str], name: str | None = None,
                         industry: str | None = None) -> str:

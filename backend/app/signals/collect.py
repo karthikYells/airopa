@@ -23,6 +23,7 @@ from app.fixtures.demo_companies import Seed
 from app.gate.india_gate import GateInputs
 from app.gate.title_classifier import classify_titles
 from app.reference.india_reference import SectorReference, AS_OF, SOURCE
+from app.signals.annual_report import apply_financials, fetch_report_pages, verify_financials
 from app.signals.newsroom import apply_events, verify_events
 from app.signals.sector import classify_sector
 
@@ -232,6 +233,16 @@ def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
             scrape.news_pages)
         rec.news_events = events
         apply_events(rec, events)
+
+    # Their own published annual report: primary-source revenue and margin trend.
+    # Overrides Apollo/Wikidata estimates because it is the filing itself.
+    if llm is not None and getattr(llm, "enabled", False) and scrape.annual_report_urls:
+        got = fetch_report_pages(scrape.annual_report_urls)
+        if got is not None:
+            report_url, pages = got
+            fin = verify_financials(llm.extract_financials(rec.resolved_name or "", pages), pages)
+            if fin:
+                apply_financials(rec, fin, report_url)
 
     # --- scope from the live tech stack ---
     if scrape.tech_stack:

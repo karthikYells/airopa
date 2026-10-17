@@ -472,8 +472,11 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
         base["ask"] = ["Latest revenue and headcount",
                        "Whether you operate any entity in India",
                        "Your primary ERP and core systems"]
-        base["lead_capture"] = {"type": "complete_the_picture",
-                                 "field": "work_email"}
+        base["withheld"] = _WITHHELD
+        base["lead_capture"] = {"type": "complete_the_picture", "field": "work_email",
+                                "title": "Get your full India business case in two weeks",
+                                "offer": ("We complete the picture with you and build the case against "
+                                          "your own products, numbers and named peer group. No obligation.")}
         return base
 
     if mode is ResponseMode.SUB_SCALE:
@@ -502,14 +505,6 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
         }
         return base
 
-    if mode is ResponseMode.ENTERPRISE:
-        base["market"] = _market_insights(rec, settings)
-        base["technology_hub"] = _tech_hub_card(rec, settings)
-        base["message"] = ("At your scale this deserves a direct conversation "
-                            "rather than a form.")
-        base["lead_capture"] = {"type": "route_to_partner", "field": "work_email",
-                                "sla": "one working day"}
-        return base
 
     # STANDARD and EXISTING_CENTRE share the nine-block body.
     base["peer_headline"] = _peer_headline(rec, seed_cohort)       # block 2
@@ -529,6 +524,11 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
                   "your own products, your numbers and your named peer group. No "
                   "obligation, and it is yours whether or not you work with us."),
     }
+
+    if mode is ResponseMode.ENTERPRISE:
+        base["message"] = ("At your scale this deserves a direct conversation rather than a "
+                           "form: the full business case is built with your team.")
+        base["lead_capture"].update({"type": "route_to_partner", "sla": "one working day"})
 
     if mode is ResponseMode.EXISTING_CENTRE:
         # Benchmark framing: never 'disqualified', never 'nothing to gain'.

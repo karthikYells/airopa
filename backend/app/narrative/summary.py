@@ -9,7 +9,7 @@ written where the fact is missing. No third party is named or criticised
 from __future__ import annotations
 
 from app.data.records import CompanyRecord, GateVerdict
-from app.narrative.reasoning import pct_range
+from app.narrative.reasoning import _home, pct_range, weeks_range
 from app.scoring.common import resolved_value
 
 
@@ -46,16 +46,29 @@ def build_summary(rec: CompanyRecord, peer: dict | None) -> dict | None:
     elif isinstance(g, (int, float)) and g < 0:
         body.append(f"Your revenue fell {abs(g):.1%} in FY{fin['year']}.")
     growth = resolved_value(rec, "DEM.03")
-    if isinstance(growth, (int, float)) and growth >= 0.05 and rec.india_market and rec.india_market.points >= 60:
+    if isinstance(growth, (int, float)) and growth >= 0.05:
         body.append(f"India's market for {(rec.sector or 'your sector').lower()} is growing roughly "
                     f"{pct_range(growth)} a year.")
+    india_pay, home_pay = resolved_value(rec, "TAL.09"), resolved_value(rec, "TAL.10")
+    if isinstance(india_pay, (int, float)) and isinstance(home_pay, (int, float)) and home_pay:
+        body.append(f"Comparable engineering roles cost about {pct_range(1 - india_pay / home_pay, 10)} "
+                    f"less there than in {_home(rec)}")
+        fill_in, fill_home = resolved_value(rec, "TAL.06"), resolved_value(rec, "TAL.07")
+        if isinstance(fill_in, int) and isinstance(fill_home, int) and fill_home > fill_in:
+            body[-1] += (f", and are filled in {weeks_range(fill_in)} against "
+                         f"{weeks_range(fill_home)} at home.")
+        else:
+            body[-1] += "."
     open_days = resolved_value(rec, "HIRE.06")
     if isinstance(open_days, (int, float)) and open_days >= 90:
         body.append(f"Half the roles on your careers site have been open at least {int(open_days)} days.")
+    body = body[:4]   # keep it short; their own position below always survives
     if greenfield:
         body.append("You have no presence there today.")
     elif entity_no_tech:
         body.append("You already have an India entity, so the slowest part of setting up is done.")
+    elif has_centre:
+        body.append("You already have a team there; the question is how far to take it.")
 
     if len(body) < 2:
         return None   # too little to say anything sharp; better silent than generic

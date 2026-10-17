@@ -64,8 +64,16 @@ class Settings(BaseSettings):
     snapshot_cache_hours: float = 24         # reuse a company's snapshot this long
 
     # --- report email (Section 9.5) ---
-    # mail_provider: "none" (queue the PDF for a person to send), "smtp" or "resend".
-    mail_provider: str = "none"
+    # mail_provider: "graph" (default, as the accessindia.nl send-report function),
+    # "smtp", "resend", or "none". Until its credentials are set, requests are
+    # queued for a person to send.
+    mail_provider: str = "graph"
+    # Microsoft Graph: the same Entra app and names as send-report on accessindia.nl.
+    ms_tenant_id: str = ""
+    ms_client_id: str = ""
+    ms_client_secret: str = ""
+    report_sender: str = "connect@airopa.co"
+    report_sender_name: str = "Access India Netherlands"
     mail_from: str = "Access India Netherlands <connect@airopa.co>"
     mail_notify: str = "connect@airopa.co"   # gets a copy of every request
     smtp_host: str = ""

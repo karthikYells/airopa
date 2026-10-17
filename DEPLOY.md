@@ -43,8 +43,9 @@ the free tier sleeps and loses the database, so it is not suitable).
 | `CORS_ORIGINS` | `https://accessindia.nl,https://www.accessindia.nl` |
 | `ENABLE_INTERNAL` | `false` (the internal view has no password; keep it local) |
 | `PUBLISH_REFERENCE_SCORES` | `false` until the India data source is approved |
-| `MAIL_PROVIDER` | `smtp` or `resend` (see step 3); `none` queues reports for a person |
-| `MAIL_FROM` / `MAIL_NOTIFY` | `Access India Netherlands <connect@airopa.co>` / `connect@airopa.co` |
+| `MAIL_PROVIDER` | `graph` (see step 3) |
+| `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | the same values as in Netlify for `send-report` |
+| `MAIL_NOTIFY` | `connect@airopa.co` (gets a copy of every report) |
 | `PUBLIC_SITE_URL` | `https://accessindia.nl/engines/india-snapshot/` |
 
 Then add the custom domain `engine.accessindia.nl` on the host and create the
@@ -69,19 +70,17 @@ The page uses the site's own `/fonts/fonts.css`, header, footer and privacy link
 
 ## 3. Sending the PDF
 
-Use the same mailbox the business case engine sends from:
+Exactly as the GCC Business Case engine does: Microsoft Graph `sendMail` from
+connect@airopa.co, using the **same Entra app** (Mail.Send, restricted to that
+mailbox). Copy `MS_TENANT_ID`, `MS_CLIENT_ID` and `MS_CLIENT_SECRET` from Netlify >
+Project configuration > Environment variables into the engine host's settings.
+Nothing else is needed; the email uses the same design as the business case email.
 
-- **Microsoft 365 (connect@airopa.co):** `MAIL_PROVIDER=smtp`,
-  `SMTP_HOST=smtp.office365.com`, `SMTP_PORT=587`, `SMTP_USER=connect@airopa.co`,
-  `SMTP_PASSWORD=` an app password. SMTP AUTH must be enabled for that mailbox in
-  the Microsoft 365 admin centre.
-- **Resend** (if `/api/send-report` already uses it): `MAIL_PROVIDER=resend`,
-  `RESEND_API_KEY=…`, with airopa.co verified in Resend.
-
-Until one is set, requests are saved as `queued` with their PDF in
+Until those are set, requests are saved as `queued` with their PDF in
 `backend/data/reports/` for a person to send, and the visitor is told the report
 will arrive within one business day. Personal email addresses are always queued
-for a person, as on the business case engine.
+for a person, as on the business case engine. (SMTP and Resend are also supported
+via `MAIL_PROVIDER=smtp` or `resend`.)
 
 ## 4. Before launch (spec Section 12 items 14 to 17)
 

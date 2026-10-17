@@ -14,6 +14,7 @@ from app.api.email_check import check_email
 from app.api.ratelimit import limit
 from app.config import get_settings
 from app.data.store import get_run, latest_public_run, save_lead, save_run
+from app.reports.email import build_email
 from app.reports.pdf import build_pdf
 from app.fixtures.demo_companies import EXAMPLE_DOMAINS, get_seed
 from app.narrative.public_snapshot import build_snapshot
@@ -100,7 +101,6 @@ def request_report(req: ReportRequest, request: Request) -> dict:
     if run is None or run["surface"] != "public":
         raise HTTPException(status_code=404, detail="snapshot_not_found")
     payload = run["payload"]
-    company_name = (payload.get("company") or {}).get("name") or run["host"]
 
     pdf = build_pdf(payload, recipient_name=req.name)
     filename = f"India-Opportunity-Snapshot-{run['host']}.pdf"
@@ -111,14 +111,8 @@ def request_report(req: ReportRequest, request: Request) -> dict:
     # Personal addresses are checked by a person first, as on the business case engine.
     sent, detail = False, "personal email: manual follow-up"
     if not em["personal"]:
-        subject = f"Your India Opportunity Snapshot: {company_name}"
         link = f"{settings.public_site_url}?company={run['host']}"
-        text = (f"Dear {req.name},\n\nAttached is the India Opportunity Snapshot for "
-                f"{company_name}, built from public sources. You can reopen it any time: {link}\n\n"
-                "If you would like the full business case, built against your own estate and "
-                "your named peer group in two weeks at no obligation, simply reply to this email.\n\n"
-                "Access India Netherlands, with founding partner Airopa Global\nconnect@airopa.co")
-        html = text.replace("&", "&amp;").replace("<", "&lt;").replace("\n", "<br>")
+        subject, text, html = build_email(payload, req.name, req.role, link)
         sent, detail = mailer.send(settings, em["email"], subject, text, html, pdf, filename,
                                    bcc=settings.mail_notify or None)
 

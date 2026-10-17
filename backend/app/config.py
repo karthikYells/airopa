@@ -58,6 +58,27 @@ class Settings(BaseSettings):
     # shown internally, but never published on the public page.
     publish_reference_scores: bool = False
 
+    # --- public surface: abuse controls and caching (Section 9.7) ---
+    public_score_limit_per_hour: int = 10    # snapshots per IP per hour
+    report_limit_per_hour: int = 5           # report emails per IP per hour
+    snapshot_cache_hours: float = 24         # reuse a company's snapshot this long
+
+    # --- report email (Section 9.5) ---
+    # mail_provider: "none" (queue the PDF for a person to send), "smtp" or "resend".
+    mail_provider: str = "none"
+    mail_from: str = "Access India Netherlands <connect@airopa.co>"
+    mail_notify: str = "connect@airopa.co"   # gets a copy of every request
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    resend_api_key: str = ""
+    public_site_url: str = "https://accessindia.nl/engines/india-snapshot/"
+    cors_origins: str = "*"   # production: https://accessindia.nl
+    # The internal view (GCC Fit) has no password by Airopa decision, so it is
+    # switched off on the public deployment and used locally only.
+    enable_internal: bool = True
+
     # --- geography (X14) ---
     target_geography: str = "NL,BE,DE,UK,Nordics,FR"
 

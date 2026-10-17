@@ -19,11 +19,13 @@ app = FastAPI(
     description="Public snapshot + internal assessment of a company's India GCC opportunity.",
 )
 
+# In production CORS_ORIGINS=https://accessindia.nl so only the site's page can
+# call the engine from a browser; "*" is for local development.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: restrict to the tool domain in production
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
+    allow_methods=["GET", "POST"],
+    allow_headers=["content-type"],
 )
 
 app.include_router(routes_public.router, prefix="/api", tags=["public"])

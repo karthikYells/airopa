@@ -1,25 +1,33 @@
 /** @type {import('tailwindcss').Config} */
-// Palette taken from the spec mockups (Sections 9.9 and 10.2).
+// Brand tokens from accessindia.nl (the GCC Business Case engine), so this
+// engine reads as part of the same site. Token names kept from the mockup build.
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        navy: "#1F3864",       // header bars, CTA, indicative scale, GCC Fit
-        orange: "#E8662A",     // peer headline, India Market
+        navy: "#18191E",       // site band: headers, CTA, GCC Fit
+        orange: "#E8791C",     // site accent: peer headline, India Market
+        "orange-ink": "#B85A0B",
+        "orange-soft": "#FBEBDC",
         green: "#1E9E6A",      // Technology Hub
-        red: "#C0392B",        // IP exposure, CONFIRMED gate
-        amber: "#B7791F",      // CAUTION
-        ink: "#1B2430",        // body text
-        mute: "#5B6575",       // secondary text
-        line: "#DDE3EA",       // borders
-        canvas: "#F4F6F9",     // page background
-        panel: "#EEF2F7",      // light grey bands
+        red: "#C0392B",
+        amber: "#B7791F",
+        ink: "#1A1B20",
+        mute: "#5C5E66",
+        line: "#E2E1DD",
+        canvas: "#F6F6F4",
+        panel: "#F1F0EC",
+        "band-fg": "#F3F2EF",
+        "band-muted": "#A3A5AD",
+        "band-line": "#2E3038",
       },
       fontFamily: {
-        sans: ["Inter", "Helvetica Neue", "Arial", "sans-serif"],
-        mono: ["JetBrains Mono", "Consolas", "monospace"],
+        display: ['"Bricolage Grotesque"', '"Avenir Next"', '"Segoe UI"', "system-ui", "sans-serif"],
+        sans: ['"IBM Plex Sans"', '"Segoe UI"', "system-ui", "sans-serif"],
+        mono: ['"IBM Plex Mono"', "ui-monospace", "Menlo", "monospace"],
       },
+      borderRadius: { panel: "14px" },
     },
   },
   plugins: [],

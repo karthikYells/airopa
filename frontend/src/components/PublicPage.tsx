@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { getExamples, scoreCompany } from "../api";
+import { copyToNetlifyForms, getExamples, requestReport, scoreCompany } from "../api";
 import type { OwnEvidence, PeerHeadline, ScoreBlock, Snapshot } from "../types";
-import { DomainInput, Rich, Scanning, TopBar, bandStyle, companyFromUrl, setCompanyInUrl } from "./ui";
+import {
+  DomainInput, Rich, Scanning, SiteFooter, SiteHeader, bandStyle, companyFromUrl, setCompanyInUrl,
+} from "./ui";
 
-/** The public self-serve snapshot, laid out as the Section 9.9 mockup. */
+/** The public India Opportunity Snapshot, an engine page on accessindia.nl.
+ *  Content follows the Section 9.9 mockup; styling follows the site. */
 export function PublicPage() {
   const [data, setData] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,66 +37,44 @@ export function PublicPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl bg-white shadow-sm">
-      <TopBar
-        title="India Opportunity Snapshot"
-        right={
-          <>
-            <div>Free · No login · Generated from public information</div>
-            <div>Full business case delivered in 2 weeks</div>
-          </>
-        }
+    <>
+      <SiteHeader
+        crumb="India Opportunity Snapshot"
+        title="Is your company ready for an India capability centre,"
+        accent="and what do your peers already know?"
+        intro="Enter your company website. From public sources alone, the engine checks your India presence, reads what your own company is signalling, and shows what a full business case would contain. Free, no login. Get the report as a PDF in your inbox."
       />
-      <main className="space-y-6 px-5 py-6 sm:px-9">
+      <main className="mx-auto max-w-[1180px] space-y-6 px-4 pt-10 sm:px-10">
         <DomainInput
           initial={domain}
-          button="Assess my company"
+          button="Check my company"
           loading={loading}
           onSubmit={run}
-          hint="Enter your company website. We read public company websites, registries and people data. Nothing is asked of you."
+          placeholder="yourcompany.com"
+          hint="We read public company websites, registries and people data. Nothing is asked of you."
         />
 
         {error && <p className="text-sm text-red">{error}</p>}
         {loading && <Scanning />}
 
-        {!data && !loading && <Intro examples={examples} onPick={run} />}
+        {!data && !loading && examples.length > 0 && (
+          <p className="text-sm text-mute">
+            Or see an illustrative example:{" "}
+            {examples.slice(0, 3).map((d, i) => (
+              <span key={d}>
+                {i > 0 && " · "}
+                <button onClick={() => run(d)} className="font-mono text-orange-ink underline">
+                  {d}
+                </button>
+              </span>
+            ))}
+          </p>
+        )}
 
         {data && <SnapshotBody data={data} />}
       </main>
-    </div>
-  );
-}
-
-function Intro({ examples, onPick }: { examples: string[]; onPick: (d: string) => void }) {
-  return (
-    <section className="rounded-md border border-line bg-panel/60 px-6 py-8">
-      <h1 className="text-2xl font-bold text-navy sm:text-3xl">
-        See your India capability centre opportunity in about 90 seconds.
-      </h1>
-      <p className="mt-3 max-w-3xl text-mute">
-        We assess, from public sources alone, whether India can supply the talent you need
-        and whether it is a market for what you sell. Everything shown is about your own
-        company. Unverified figures are left out, never estimated.
-      </p>
-      {examples.length > 0 && (
-        <div className="mt-6">
-          <p className="text-xs font-semibold uppercase tracking-widest text-mute">
-            Or try an illustrative example
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {examples.map((d) => (
-              <button
-                key={d}
-                onClick={() => onPick(d)}
-                className="rounded-full border border-line bg-white px-3 py-1.5 font-mono text-sm text-ink hover:border-navy hover:text-navy"
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </section>
+      <SiteFooter />
+    </>
   );
 }
 
@@ -106,16 +87,14 @@ function SnapshotBody({ data }: { data: Snapshot }) {
 
       {data.company && <CompanyBar data={data} />}
 
-      {data.message && data.mode !== "INSUFFICIENT_DATA" && (
-        <p className="rounded-md border-l-4 border-navy bg-panel/60 px-4 py-3 text-sm text-ink">
+      {data.message && data.mode !== "INSUFFICIENT_DATA" && data.mode !== "REJECTED" && (
+        <p className="rounded-panel border-l-4 border-orange bg-orange-soft px-5 py-3 text-[15px] text-ink">
           {data.message}
         </p>
       )}
 
       {data.mode === "REJECTED" && <Notice title="Please enter a company website" body={data.message} />}
-      {data.mode === "EXCLUDED" && data.content && (
-        <Notice title={data.content.headline} body={data.content.body} />
-      )}
+      {data.mode === "EXCLUDED" && data.content && <Notice title={data.content.headline} body={data.content.body} />}
       {data.mode === "INSUFFICIENT_DATA" && <Insufficient data={data} />}
 
       {hasScores && (
@@ -128,28 +107,24 @@ function SnapshotBody({ data }: { data: Snapshot }) {
 
       {full && data.own_evidence && data.own_evidence.length > 0 && (
         <section>
-          <h2 className="border-b border-line pb-2 text-xs font-bold uppercase tracking-[0.18em] text-navy">
+          <h2 className="font-mono text-[12.5px] font-medium uppercase tracking-[0.12em] text-orange-ink">
             What we found when we looked at your company specifically
           </h2>
           <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-3">
-            {data.own_evidence.map((p) => (
-              <EvidenceCard key={p.title} p={p} />
-            ))}
+            {data.own_evidence.map((p) => <EvidenceCard key={p.title} p={p} />)}
           </div>
         </section>
       )}
 
-      {(full || data.lead_capture) && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.25fr_1fr]">
-          {full && data.withheld ? <Withheld items={data.withheld} /> : <div />}
-          {data.lead_capture && <Cta data={data} />}
+      {data.run_id && data.mode !== "REJECTED" && data.mode !== "EXCLUDED" && (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.1fr]">
+          {full && data.withheld ? <Withheld items={data.withheld} /> : <BusinessCaseNote data={data} />}
+          <ReportForm data={data} />
         </div>
       )}
 
       {data.disclaimer && (
-        <footer className="border-t border-line pt-4 text-xs leading-5 text-mute">
-          {data.disclaimer}
-        </footer>
+        <p className="border-t border-line pt-4 text-[13px] leading-5 text-mute">{data.disclaimer}</p>
       )}
     </>
   );
@@ -157,16 +132,15 @@ function SnapshotBody({ data }: { data: Snapshot }) {
 
 function PeerCard({ peer }: { peer: PeerHeadline }) {
   return (
-    <section className="flex flex-col gap-4 rounded-md border border-line border-t-4 border-t-orange bg-white px-6 py-5 sm:flex-row sm:items-center sm:gap-8">
-      <div className="whitespace-nowrap text-5xl font-extrabold text-orange sm:text-6xl">
+    <section className="flex flex-col gap-4 rounded-panel border border-line border-l-4 border-l-orange bg-white px-6 py-5 sm:flex-row sm:items-center sm:gap-8">
+      <div className="whitespace-nowrap font-display text-5xl font-extrabold text-orange sm:text-6xl">
         {peer.with_centre} of {peer.total}
       </div>
       <div>
-        <p className="text-lg font-bold text-ink">
-          of the companies we identify as your closest peers already run a capability centre in
-          India.
-        </p>
-        <p className="mt-1 text-sm text-mute">
+        <h2 className="text-xl font-bold text-ink">
+          of the companies we identify as your closest peers already run a capability centre in India.
+        </h2>
+        <p className="mt-1 text-[15px] text-mute">
           {peer.recent_24m ? `${peer.recent_24m} of them opened within the last 24 months. ` : ""}
           Your cohort: <strong className="text-ink">{peer.cohort_definition}</strong>.
           {peer.aggregate_india_headcount
@@ -180,24 +154,16 @@ function PeerCard({ peer }: { peer: PeerHeadline }) {
 
 function CompanyBar({ data }: { data: Snapshot }) {
   const c = data.company!;
-  const facts = [c.sector, c.country, c.revenue, c.headcount].filter(Boolean);
+  const facts = [c.sector, c.country, c.revenue, c.headcount].filter(Boolean) as string[];
   return (
-    <section className="flex flex-col gap-2 rounded-md border border-line bg-panel px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+    <section className="flex flex-col gap-2 rounded-panel border border-line bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <span className="font-bold text-ink">{c.name || c.input}</span>
-        {facts.map((f) => (
-          <span key={f as string} className="text-mute">
-            {"  ·  "}
-            {f}
-          </span>
-        ))}
-        {data.provisional_resolution && (
-          <span className="ml-2 rounded bg-white px-1.5 py-0.5 text-[11px] text-mute">
-            matched from website, not a registry
-          </span>
-        )}
+        <h2 className="text-[clamp(24px,3vw,32px)] font-extrabold tracking-tight text-ink">{c.name || c.input}</h2>
+        <p className="text-[15px] text-mute">{facts.join("  ·  ")}</p>
       </div>
-      {data.india_status && <div className="text-ink sm:max-w-[45%] sm:text-right">{data.india_status}</div>}
+      {data.india_status && (
+        <p className="text-[15px] text-ink sm:max-w-[45%] sm:text-right">{data.india_status}</p>
+      )}
     </section>
   );
 }
@@ -205,24 +171,21 @@ function CompanyBar({ data }: { data: Snapshot }) {
 function ScoreCard({ s, accent }: { s: ScoreBlock; accent: "orange" | "green" }) {
   const color = accent === "orange" ? "text-orange" : "text-green";
   const bar = accent === "orange" ? "bg-orange" : "bg-green";
-  const top = accent === "orange" ? "border-t-orange" : "border-t-green";
   return (
-    <section className={`rounded-md border border-line border-t-4 ${top} bg-white p-5`}>
-      <h3 className="font-bold text-ink">{s.label}</h3>
-      {s.question && <p className="mt-0.5 text-xs text-mute">{s.question}</p>}
+    <section className="rounded-panel border border-line bg-white p-6">
+      <h3 className="text-[21px] font-bold text-ink">{s.label}</h3>
+      {s.question && <p className="mt-0.5 text-sm text-mute">{s.question}</p>}
       <div className="mt-5 flex items-end justify-between">
         <p>
-          <span className={`text-5xl font-extrabold ${color}`}>{s.score}</span>
-          <span className="ml-1 text-sm text-mute">/ 100</span>
+          <span className={`font-display text-5xl font-extrabold ${color}`}>{s.score}</span>
+          <span className="ml-1 font-mono text-sm text-mute">/ 100</span>
         </p>
-        <span className={`rounded px-2 py-1 text-[11px] font-bold uppercase ${bandStyle(s.band)}`}>
-          {s.band}
-        </span>
+        <span className={`rounded-full px-2.5 py-1 font-mono text-[11px] uppercase ${bandStyle(s.band)}`}>{s.band}</span>
       </div>
-      <div className="mt-3 h-2 w-full rounded bg-line">
-        <div className={`h-2 rounded ${bar}`} style={{ width: `${s.score}%` }} />
+      <div className="mt-3 h-2 w-full rounded-full bg-line">
+        <div className={`h-2 rounded-full ${bar}`} style={{ width: `${s.score}%` }} />
       </div>
-      <dl className="mt-4 space-y-1.5 text-xs">
+      <dl className="mt-4 space-y-1.5 text-sm">
         {s.sub_dimensions.map((d) => (
           <div key={d.name} className="flex justify-between">
             <dt className="text-mute">{d.name}</dt>
@@ -230,68 +193,63 @@ function ScoreCard({ s, accent }: { s: ScoreBlock; accent: "orange" | "green" })
           </div>
         ))}
       </dl>
-      <p className="mt-3 text-[11px] text-mute/80">Evidence coverage {s.coverage}%</p>
+      <p className="mt-3 text-xs text-mute">Evidence coverage {s.coverage}%</p>
     </section>
   );
 }
 
 function ScaleCard({ scale }: { scale: NonNullable<Snapshot["indicative_scale"]> }) {
-  return (
-    <section className="rounded-md border border-line border-t-4 border-t-navy bg-panel/70 p-5">
-      <h3 className="font-bold text-ink">Indicative scale, if you moved</h3>
-      <p className="mt-0.5 text-xs text-mute">{scale.note}</p>
-      <Kv k="First phase team" v={scale.first_phase_team} />
-      <Kv k="Indicative run-rate saving" v={scale.indicative_saving} sub={scale.saving_basis} />
-      <Kv k="Time to first team live" v={scale.time_to_first_team_live} />
-    </section>
-  );
-}
-
-function Kv({ k, v, sub }: { k: string; v: string; sub?: string }) {
-  return (
+  const kv = (k: string, v: string, sub?: string) => (
     <div className="mt-4">
-      <p className="text-[11px] font-semibold uppercase tracking-widest text-mute">{k}</p>
-      <p className="text-xl font-bold text-navy">{v}</p>
-      {sub && <p className="text-[11px] text-mute">{sub}</p>}
+      <p className="text-[13.5px] text-band-muted">{k}</p>
+      <p className="font-display text-2xl font-bold text-orange">{v}</p>
+      {sub && <p className="text-xs text-band-muted">{sub}</p>}
     </div>
+  );
+  return (
+    <section className="rounded-panel bg-navy p-6 text-band-fg">
+      <h3 className="text-[21px] font-bold">Indicative scale, if you moved</h3>
+      <p className="mt-0.5 text-sm text-band-muted">{scale.note}</p>
+      {kv("First phase team", scale.first_phase_team)}
+      {kv("Indicative run-rate saving", scale.indicative_saving, scale.saving_basis)}
+      {kv("Time to first team live", scale.time_to_first_team_live)}
+    </section>
   );
 }
 
 function EvidenceCard({ p }: { p: OwnEvidence }) {
   const dot = p.tone === "red" ? "bg-red" : p.tone === "orange" ? "bg-orange" : "bg-[#2F6FD0]";
   return (
-    <section className="rounded-md border border-line bg-white p-5">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-ink">
-        <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
+    <section className="rounded-panel border border-line bg-white p-6">
+      <h3 className="flex items-center gap-2 text-[17px] font-bold text-ink">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} />
         {p.title}
       </h3>
-      <ul className="mt-3 space-y-2 text-sm text-mute">
+      <ul className="mt-3 space-y-2 text-[15px] text-mute">
         {p.bullets.map((b) => (
-          <li key={b} className="flex gap-2">
-            <span className="text-mute/60">•</span>
-            <span>
-              <Rich text={b} />
-            </span>
+          <li key={b} className="grid grid-cols-[14px_1fr] gap-1.5">
+            <span className="text-orange-ink">•</span>
+            <span><Rich text={b} /></span>
           </li>
         ))}
       </ul>
-      {p.as_of && <p className="mt-3 text-[11px] text-mute/70">Source dated {p.as_of}</p>}
+      {p.as_of && <p className="mt-3 font-mono text-[11px] text-mute">Source dated {p.as_of}</p>}
     </section>
   );
 }
 
 function Withheld({ items }: { items: string[] }) {
   return (
-    <section className="rounded-md border border-dashed border-mute/40 bg-white p-5">
-      <h3 className="font-bold text-ink">What this snapshot deliberately does not show you</h3>
-      <p className="mt-0.5 text-xs text-mute">
-        These need judgement and verification, not automation. They are what the full business
-        case contains.
+    <section className="rounded-panel border border-dashed border-mute/40 bg-white p-6">
+      <h3 className="text-[21px] font-bold text-ink">What this snapshot deliberately does not show you</h3>
+      <p className="mt-1 text-sm text-mute">
+        These need judgement and verification, not automation. They are what the full business case
+        contains, built by Airopa Global in two weeks, at no obligation.
       </p>
-      <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2.5 text-sm text-ink sm:grid-cols-2">
+      <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2.5 text-[15px] text-ink sm:grid-cols-2">
         {items.map((w) => (
-          <li key={w} className="flex gap-2">
-            <span className="text-mute">+</span>
+          <li key={w} className="grid grid-cols-[14px_1fr] gap-1.5">
+            <span className="font-mono text-orange-ink">+</span>
             {w}
           </li>
         ))}
@@ -300,44 +258,133 @@ function Withheld({ items }: { items: string[] }) {
   );
 }
 
-function Cta({ data }: { data: Snapshot }) {
-  const lc = data.lead_capture!;
-  const [sent, setSent] = useState(false);
-  const button: Record<string, string> = {
-    business_case: "Request my business case",
-    sector_briefing: "Send me the sector briefing",
-    route_to_partner: "Speak to a partner",
-    complete_the_picture: "Complete my assessment",
-  };
+function BusinessCaseNote({ data }: { data: Snapshot }) {
   return (
-    <section className="rounded-md bg-navy p-6 text-white">
-      <h3 className="text-lg font-bold">{lc.title ?? "Get the full business case in two weeks"}</h3>
-      {lc.offer && <p className="mt-2 text-sm text-white/85">{lc.offer}</p>}
-      {lc.sla && <p className="mt-1 text-sm text-white/85">We respond within {lc.sla}.</p>}
-      {sent ? (
-        <p className="mt-5 rounded bg-white/10 px-4 py-3 text-sm">
-          Thank you. (Demo: wire this to Airopa's CRM before launch.)
-        </p>
+    <section className="rounded-panel border border-line bg-white p-6">
+      <h3 className="text-[21px] font-bold text-ink">
+        {data.lead_capture?.title ?? "Want the full picture?"}
+      </h3>
+      <p className="mt-2 text-[15px] text-mute">
+        {data.lead_capture?.offer ??
+          "Airopa Global builds a full business case against your own estate and peer group in two weeks, at no obligation."}
+      </p>
+    </section>
+  );
+}
+
+const ROLES = ["CEO / Founder", "CFO / Finance", "CTO / CIO / Technology", "COO / Operations",
+  "HR / People", "Strategy / Business development", "Other"];
+
+/** "Email me the report": same fields, rules and wording as the GCC Business
+ *  Case engine. The engine saves the lead and emails the PDF of this snapshot. */
+function ReportForm({ data }: { data: Snapshot }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState(data.company?.name ?? "");
+  const [role, setRole] = useState("");
+  const [call, setCall] = useState(false);
+  const [bot, setBot] = useState("");
+  const [allowPersonal, setAllowPersonal] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [askPersonal, setAskPersonal] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    if (!name.trim() || !company.trim()) { setMsg("Please fill in your name and company."); return; }
+    setBusy(true);
+    try {
+      const status = await requestReport({
+        run_id: data.run_id!, name: name.trim(), email: email.trim(), company: company.trim(),
+        role, call_partner: call, allow_personal: allowPersonal, bot_field: bot,
+      });
+      void copyToNetlifyForms({
+        "bot-field": bot, name: name.trim(), email: email.trim(), company: company.trim(), role,
+        call_partner: call ? "yes" : "no", email_type: allowPersonal ? "personal" : "work",
+        domain: data.company?.input ?? "", snapshot_link: window.location.href,
+      });
+      const safeEmail = email.trim();
+      setDone(status === "sent"
+        ? `Report sent to ${safeEmail}. It should arrive within a few minutes; if not, please check your spam folder.`
+        : `Thank you, ${name.trim()}. We'll email your report to ${safeEmail} within one business day.`);
+    } catch (err) {
+      const r = (err as Error).message;
+      if (r === "personal_email") {
+        setMsg("Please use your work email so we can tailor the report to your company.");
+        setAskPersonal(true);
+      } else if (r === "invalid_email") {
+        setMsg("That email address doesn't look right. Please check it.");
+      } else if (r === "rate_limited") {
+        setMsg("You have requested several reports in a short time. Please try again later.");
+      } else {
+        setMsg("Something went wrong. Please try again, or email connect@airopa.co.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const field = "w-full rounded-[10px] border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none focus:border-orange";
+  return (
+    <section className="rounded-panel border border-line border-l-4 border-l-orange bg-white p-6">
+      <div className="font-mono text-[12.5px] uppercase tracking-[0.12em] text-orange-ink">Free report</div>
+      <h3 className="mt-1 text-[21px] font-bold text-ink">Get this snapshot in your inbox</h3>
+      <p className="mt-1 text-[15px] text-mute">
+        A PDF of your India Opportunity Snapshot, with what we found about your company and what the full
+        business case would add. Ready to forward to your board.
+      </p>
+      {done ? (
+        <p className="mt-5 rounded-[10px] bg-orange-soft px-4 py-3 text-[15px] text-ink" role="status">{done}</p>
       ) : (
-        <form
-          className="mt-5 space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSent(true);
-          }}
-        >
-          <input
-            required
-            type="email"
-            placeholder="Work email"
-            className="w-full rounded-md border border-white/30 bg-white/10 px-4 py-3 text-white outline-none placeholder:text-white/60 focus:border-white"
-          />
-          <button
-            type="submit"
-            className="w-full rounded-md bg-white px-4 py-3 font-semibold text-navy hover:bg-panel"
-          >
-            {button[lc.type] ?? "Request"}
-          </button>
+        <form onSubmit={submit} noValidate className="mt-4">
+          <p className="absolute left-[-9999px]" aria-hidden="true">
+            <label>Leave this empty <input tabIndex={-1} autoComplete="off" value={bot} onChange={(e) => setBot(e.target.value)} /></label>
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="text-sm text-mute">Full name
+              <input className={field} autoComplete="name" maxLength={80} required value={name} onChange={(e) => setName(e.target.value)} />
+            </label>
+            <label className="text-sm text-mute">Work email
+              <input className={field} type="email" autoComplete="email" maxLength={254} required value={email}
+                     onChange={(e) => { setEmail(e.target.value); setAllowPersonal(false); setAskPersonal(false); }} />
+            </label>
+            <label className="text-sm text-mute">Company
+              <input className={field} autoComplete="organization" maxLength={80} required value={company} onChange={(e) => setCompany(e.target.value)} />
+            </label>
+            <label className="text-sm text-mute">Role <em>(optional)</em>
+              <select className={field} value={role} onChange={(e) => setRole(e.target.value)}>
+                <option value="">Select…</option>
+                {ROLES.map((r) => <option key={r}>{r}</option>)}
+              </select>
+            </label>
+          </div>
+          {msg && (
+            <p className="mt-3 text-sm text-red" role="alert">
+              {msg}{" "}
+              {askPersonal && !allowPersonal && (
+                <button type="button" className="underline" onClick={() => { setAllowPersonal(true); setMsg("OK, submit again to use this address."); }}>
+                  I don't have a work email
+                </button>
+              )}
+            </p>
+          )}
+          <label className="mt-4 flex gap-2.5 text-sm text-ink">
+            <input type="checkbox" className="mt-1 accent-[#E8791C]" checked={call} onChange={(e) => setCall(e.target.checked)} />
+            <span>I'd also like a free 30-minute call with Access India's GCC partner, Airopa Global. I agree to my details being shared with Airopa Global for this purpose.</span>
+          </label>
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            <button type="submit" disabled={busy}
+                    className="rounded-full bg-orange px-5 py-3 text-[15.5px] font-semibold text-[#16120D] transition hover:-translate-y-px disabled:opacity-60">
+              {busy ? "Sending…" : "Email me the report"}
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-mute">
+            Your report is sent by our partner Airopa Global from connect@airopa.co. We use your details only to
+            send this report and, if you ticked the box, to arrange the call.{" "}
+            <a href="/privacy/" target="_blank" rel="noreferrer">Privacy notice</a>
+          </p>
         </form>
       )}
     </section>
@@ -346,26 +393,20 @@ function Cta({ data }: { data: Snapshot }) {
 
 function Insufficient({ data }: { data: Snapshot }) {
   return (
-    <section className="rounded-md border border-line bg-white p-6">
-      <h2 className="text-xl font-bold text-ink">{data.message}</h2>
-      <p className="mt-2 text-sm text-mute">
-        We publish only what we can verify. We found {data.verified_count} verified data
-        points, which is not enough for an honest snapshot.
+    <section className="rounded-panel border border-line bg-white p-6">
+      <h3 className="text-[21px] font-bold text-ink">{data.message}</h3>
+      <p className="mt-2 text-[15px] text-mute">
+        We publish only what we can verify, and found {data.verified_count} verified data points, not enough
+        for an honest snapshot. Tell us a few facts and we complete the picture for you.
       </p>
       {data.ask && (
-        <>
-          <p className="mt-5 text-xs font-bold uppercase tracking-widest text-navy">
-            Tell us these and we complete the picture
-          </p>
-          <ul className="mt-2 space-y-1.5 text-sm text-ink">
-            {data.ask.map((a) => (
-              <li key={a} className="flex gap-2">
-                <span className="text-mute">+</span>
-                {a}
-              </li>
-            ))}
-          </ul>
-        </>
+        <ul className="mt-3 space-y-1.5 text-[15px] text-ink">
+          {data.ask.map((a) => (
+            <li key={a} className="grid grid-cols-[14px_1fr] gap-1.5">
+              <span className="font-mono text-orange-ink">+</span>{a}
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );
@@ -373,8 +414,8 @@ function Insufficient({ data }: { data: Snapshot }) {
 
 function Notice({ title, body }: { title?: string; body?: string }) {
   return (
-    <section className="rounded-md border border-line bg-white p-6">
-      <h2 className="text-xl font-bold text-ink">{title}</h2>
+    <section className="rounded-panel border border-line bg-white p-6">
+      <h3 className="text-[21px] font-bold text-ink">{title}</h3>
       {body && <p className="mt-2 text-mute">{body}</p>}
     </section>
   );

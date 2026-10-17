@@ -37,6 +37,7 @@ export interface Company {
 }
 
 export interface Snapshot {
+  run_id?: string;
   mode: string;
   reason?: string;
   message?: string;

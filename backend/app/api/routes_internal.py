@@ -26,6 +26,8 @@ class AssessRequest(BaseModel):
 @router.post("/assess")
 def assess_company(req: AssessRequest) -> dict:
     settings = get_settings()
+    if not settings.enable_internal:
+        raise HTTPException(status_code=404, detail="not found")
     ok, host, reason = validate(req.url)
     if not ok:
         raise HTTPException(status_code=400, detail=f"invalid input: {reason}")

@@ -14,8 +14,21 @@ body,
 
 body {
   margin: 0;
-  background: #e9edf2;
-  color: #1b2430;
-  font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+  background: #f6f6f4;
+  color: #1a1b20;
+  font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid #e8791c;
+  outline-offset: 3px;
+  border-radius: 4px;
 }

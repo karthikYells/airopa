@@ -54,3 +54,16 @@ def test_recheck_task_needs_the_key(monkeypatch):
     assert client.post("/api/tasks/recheck-roles", headers={"X-Task-Key": "wrong"}).status_code == 404
     r = client.post("/api/tasks/recheck-roles", headers={"X-Task-Key": "s3cret-test-key"})
     assert r.status_code == 200 and r.json() == {"due": 0, "checked": []}
+
+
+def test_recheck_deletes_year_old_history(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.config import get_settings
+    from app.data import kv
+    from app.main import app
+
+    role_history.observe("old.example", ["Data Engineer"], URL, today=date(2024, 1, 1))
+    monkeypatch.setattr(get_settings(), "task_key", "s3cret-test-key")
+    r = TestClient(app).post("/api/tasks/recheck-roles", headers={"X-Task-Key": "s3cret-test-key"})
+    assert r.json()["due"] == 0 and kv.get("roles", "old.example") is None

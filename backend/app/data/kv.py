@@ -66,3 +66,13 @@ def keys(collection: str, limit: int = 500) -> list[str]:
         return sorted(p.stem for p in folder.glob("*.json"))[:limit] if folder.exists() else []
     except Exception:
         return []
+
+
+def delete(collection: str, key: str) -> None:
+    try:
+        if _use_firestore():
+            _firestore().collection(collection).document(_safe(key)).delete()
+            return
+        (_DIR / collection / f"{_safe(key)}.json").unlink(missing_ok=True)
+    except Exception:
+        pass

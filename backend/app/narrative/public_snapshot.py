@@ -326,7 +326,19 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
         base["message"] = ("Below the scale where an owned India centre is the "
                             "right first step, but India may still be a market "
                             "for what you sell.")
-        base["lead_capture"] = {"type": "sector_briefing", "field": "work_email"}
+        # Market access is the point of the engine, so a smaller company gets the
+        # same case for the full assessment, framed around selling into India.
+        base["own_evidence"] = _own_evidence(rec)
+        base["withheld"] = _WITHHELD
+        base["lead_capture"] = {
+            "type": "sector_briefing",
+            "field": "work_email",
+            "title": "Get your full India market case in two weeks",
+            "offer": ("Whether India is worth entering for what you sell: we build it "
+                      "against your own products, your numbers and your named peer "
+                      "group. No obligation, and it is yours whether or not you work "
+                      "with us."),
+        }
         return base
 
     if mode is ResponseMode.ENTERPRISE:

@@ -79,7 +79,6 @@ export function PublicPage() {
 }
 
 function SnapshotBody({ data }: { data: Snapshot }) {
-  const full = data.mode === "STANDARD" || data.mode === "EXISTING_CENTRE";
   const hasScores = !!(data.technology_hub || data.indicative_scale);
   return (
     <>
@@ -93,7 +92,7 @@ function SnapshotBody({ data }: { data: Snapshot }) {
       {data.market && <MarketSection m={data.market} />}
 
       {/* 2. Your India presence today */}
-      {(data.india_status || data.peer_headline || (full && data.own_evidence?.length)) && (
+      {(data.india_status || data.peer_headline || data.own_evidence?.length) && (
         <section className="space-y-5">
           <SectionLabel>Your India presence today</SectionLabel>
           {data.india_status && (
@@ -107,7 +106,7 @@ function SnapshotBody({ data }: { data: Snapshot }) {
             </p>
           )}
           {data.peer_headline && <PeerCard peer={data.peer_headline} />}
-          {full && data.own_evidence && data.own_evidence.length > 0 && (
+          {data.own_evidence && data.own_evidence.length > 0 && (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
               {data.own_evidence.map((p) => <EvidenceCard key={p.title} p={p} />)}
             </div>
@@ -124,7 +123,7 @@ function SnapshotBody({ data }: { data: Snapshot }) {
 
       {data.run_id && data.mode !== "REJECTED" && data.mode !== "EXCLUDED" && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.1fr]">
-          {full && data.withheld ? <Withheld items={data.withheld} /> : <BusinessCaseNote data={data} />}
+          {data.withheld ? <Withheld items={data.withheld} /> : <BusinessCaseNote data={data} />}
           <ReportForm data={data} />
         </div>
       )}

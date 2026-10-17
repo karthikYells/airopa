@@ -11,6 +11,7 @@ backend/data/*.db
 backend/data/apollo_cache/
 backend/data/sector_cache.json
 backend/data/reports/
+backend/data/kv/
 
 # --- Python ---
 __pycache__/

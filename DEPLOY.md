@@ -50,7 +50,7 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
 gcloud run deploy india-market-assessment --source backend --region europe-west1 \
   --allow-unauthenticated --memory 1Gi --cpu 1 --timeout 300 \
   --max-instances 2 --concurrency 10 \
-  --set-env-vars "CORS_ORIGINS=https://accessindia.nl,ENABLE_INTERNAL=false,PUBLISH_REFERENCE_SCORES=false,MAIL_PROVIDER=graph,MAIL_NOTIFY=connect@airopa.co,PUBLIC_SITE_URL=https://accessindia.nl/engines/india-market-assessment/"
+  --env-vars-file backend/cloudrun.env.yaml
 ```
 
 Use the settings file, not `--set-env-vars`: on Windows the `^;^` separator

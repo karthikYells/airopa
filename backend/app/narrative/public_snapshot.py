@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.narrative.reasoning import indicative_scale, reason_for
 from app.data.records import (
     CompanyRecord, GateVerdict, ResponseMode, ScoreResult,
@@ -412,7 +412,7 @@ def _peer_headline(rec: CompanyRecord, seed_cohort: dict | None) -> dict | None:
     penetration estimate is not their peers and is not shown; this block
     returns once the peer database (Section 6.1) exists."""
     pc = rec.peer_cohort
-    if pc and pc.get("publishable"):
+    if pc and pc.get("publishable") and get_settings().publish_peer_headline:
         agg = pc.get("aggregate_india_profiles") or 0
         return {
             "with_centre": pc["with_centre"],

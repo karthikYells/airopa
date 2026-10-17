@@ -16,7 +16,7 @@ from fastapi import APIRouter, Header, HTTPException
 from app.adapters.web_scraper import scrape
 from app.config import get_settings
 from app.data import kv
-from app.signals import role_history
+from app.signals import peers, role_history
 
 router = APIRouter()
 
@@ -26,11 +26,24 @@ _PER_CALL = 6
 _DELETE_AFTER_DAYS = 365  # role history is deleted a year after we first saw the site
 
 
-@router.post("/tasks/recheck-roles")
-def recheck_roles(x_task_key: str = Header(default="")) -> dict:
+def _authorised(x_task_key: str) -> None:
     key = get_settings().task_key
     if not key or not hmac.compare_digest(x_task_key, key):
         raise HTTPException(status_code=404, detail="not found")
+
+
+@router.post("/tasks/build-cohorts")
+def build_cohorts(x_task_key: str = Header(default="")) -> dict:
+    """Builds queued peer sets (Section 5.8); runs every 30 minutes."""
+    _authorised(x_task_key)
+    from app.adapters.llm import LLM
+    settings = get_settings()
+    return {"built": peers.build_queued(settings, llm=LLM(settings))}
+
+
+@router.post("/tasks/recheck-roles")
+def recheck_roles(x_task_key: str = Header(default="")) -> dict:
+    _authorised(x_task_key)
     today = date.today()
     due = []
     for domain in kv.keys("roles"):

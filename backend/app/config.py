@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # One Apollo company search per new prospect (1 credit) finds its European
     # peer set; checking each peer's India presence is free. Approved 2026-10-17.
     apollo_peer_search: bool = True
+    # Show the peer count publicly. Off until peer quality is reviewed (2026-10-17):
+    # a loose industry match produced fashion brands as peers of a components maker.
+    publish_peer_headline: bool = False
     # India job postings (1 credit per new company). Off.
     apollo_job_postings: bool = False
     apollo_cache_days: int = 30

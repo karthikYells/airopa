@@ -125,8 +125,9 @@ def run_pipeline(
         gate_inputs = collect_live(rec, sr, wd, ref, settings, llm=llm, apollo=ap)
         # Peer set and each peer's verified India status (Section 5.8).
         if ap_ok:
-            rec.peer_cohort = peers.build_cohort(ap, rec.sector, settings, llm=llm)
-            if rec.peer_cohort:
+            # Read a finished cohort; a new prospect is queued for the scheduled build.
+            rec.peer_cohort = peers.cached_cohort(ap, rec.sector, sector_key)
+            if rec.peer_cohort and not rec.peer_cohort.get("empty"):
                 outcome.notes.append(
                     f"Peers: {rec.peer_cohort['with_centre']} of {rec.peer_cohort['known']} known "
                     f"({len(rec.peer_cohort['peers'])} found) have an India technology team; "

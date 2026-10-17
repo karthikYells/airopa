@@ -33,3 +33,28 @@ def test_unknown_peers_are_left_out_of_the_count(monkeypatch):
     c = peers.build_cohort(ap, "Industrial machinery", None)
     assert (c["with_centre"], c["known"], c["publishable"]) == (3, 5, True)
     assert c["aggregate_india_profiles"] == 300
+
+
+def test_candidates_outside_the_sector_are_dropped(monkeypatch):
+    ap = ApolloResult(domain="self.nl", industry="machinery", revenue_eur=10**9)
+    found = {"peers": [{"name": n, "domain": f"{n}.com"} for n in ("press", "fashion", "pump")],
+             "credits_used": 1}
+    monkeypatch.setattr(peers, "discover", lambda ap, s: found)
+    monkeypatch.setattr(peers, "peer_sector", lambda p, llm=None:
+                        "consumer_goods" if p["name"] == "fashion" else "industrial_machinery")
+    monkeypatch.setattr(peers, "check_peer", lambda p, s, llm=None: {**p, "status": "yes", "india_profiles": 1})
+    c = peers.build_cohort(ap, "Industrial machinery", None, sector_key="industrial_machinery")
+    assert [p["name"] for p in c["peers"]] == ["press", "pump"]
+
+
+def test_visit_queues_and_task_builds(monkeypatch):
+    from app.data import kv
+    ap = ApolloResult(domain="self.nl", industry="machinery", revenue_eur=10**9)
+    kv.put("apollo", "self.nl", ap.__dict__)
+    assert peers.cached_cohort(ap, "Industrial machinery", "industrial_machinery") is None
+    assert kv.get("cohort_queue", "self.nl")["sector_key"] == "industrial_machinery"
+    monkeypatch.setattr(peers, "build_cohort", lambda ap, sector, s, llm=None, sector_key=None: {
+        "peers": [], "known": 6, "with_centre": 4, "publishable": True})
+    assert peers.build_queued(None) == [{"domain": "self.nl", "known": 6, "with_centre": 4}]
+    assert kv.get("cohort_queue", "self.nl") is None
+    assert peers.cached_cohort(ap, "Industrial machinery", "industrial_machinery")["with_centre"] == 4

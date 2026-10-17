@@ -27,6 +27,8 @@ from app.data import kv
 from app.data.records import GateVerdict
 from app.gate.india_gate import run_gate
 from app.gate.title_classifier import classify_titles
+from app.signals import sector_cache
+from app.signals.sector import classify_sector
 
 _TTL = 90 * 86400
 _MAX_PEERS = 15
@@ -82,7 +84,7 @@ def parse_peers(data: dict, own_domain: str, own_name: str | None,
         seen.add(dom)
         out.append({"name": name, "domain": dom, "country": o.get("country"),
                     "industry": industry or None})
-    return out[:_MAX_PEERS]
+    return out
 
 
 def discover(ap: ApolloResult, settings: Settings) -> dict | None:
@@ -149,6 +151,26 @@ def check_peer(peer: dict, settings: Settings, llm=None) -> dict:
     return doc
 
 
+def peer_sector(peer: dict, llm=None) -> str | None:
+    """The peer's sector key, decided the same way as the prospect's: from its
+    own homepage. Saved per domain so a peer is classified once."""
+    from app.adapters.web_scraper import _text
+
+    key = sector_cache.get(peer["domain"])
+    if key:
+        return key
+    try:
+        r = httpx.get(f"https://{peer['domain']}", timeout=httpx.Timeout(8.0, connect=4.0), follow_redirects=True,
+                      headers={"User-Agent": "AiropaBot/1.0 (+https://airopa.co)"})
+        text = _text(r.text)[:3000] if r.status_code < 400 else ""
+    except Exception:
+        return None
+    key, _, method = classify_sector(text, llm=llm, name=peer.get("name"))
+    if key and method == "model":
+        sector_cache.put(peer["domain"], key)
+    return key
+
+
 def _band(rev_eur: float | None) -> str:
     if not rev_eur:
         return ""
@@ -159,13 +181,25 @@ def _band(rev_eur: float | None) -> str:
     return f", EUR {fmt(lo)} to {fmt(hi)} revenue"
 
 
-def build_cohort(ap: ApolloResult, sector: str | None, settings: Settings, llm=None) -> dict | None:
-    """The cohort with every peer checked, plus the derived metrics (PEER.30)."""
+def build_cohort(ap: ApolloResult, sector: str | None, settings: Settings, llm=None,
+                 sector_key: str | None = None) -> dict | None:
+    """The cohort with every peer checked, plus the derived metrics (PEER.30).
+    A candidate from the company search is a peer only if its own homepage puts
+    it in the prospect's sector: the search's industry match alone is too loose
+    (it returned fashion houses for a components maker)."""
     found = discover(ap, settings)
     if not found or not found.get("peers"):
         return None
+    candidates = found["peers"]
+    if sector_key:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            keys = list(pool.map(lambda p: peer_sector(p, llm), candidates))
+        candidates = [p for p, k in zip(candidates, keys) if k == sector_key]
+    candidates = candidates[:_MAX_PEERS]
+    if not candidates:
+        return None
     with ThreadPoolExecutor(max_workers=6) as pool:
-        checked = list(pool.map(lambda p: check_peer(p, settings, llm), found["peers"]))
+        checked = list(pool.map(lambda p: check_peer(p, settings, llm), candidates))
     known = [p for p in checked if p["status"] in ("yes", "no")]
     with_centre = [p for p in known if p["status"] == "yes"]
     return {
@@ -177,3 +211,39 @@ def build_cohort(ap: ApolloResult, sector: str | None, settings: Settings, llm=N
         "publishable": len(known) >= _MIN_KNOWN,
         "credits_used": found.get("credits_used", 0),
     }
+
+
+# --- background build ---------------------------------------------------------------
+# Building a cohort reads up to 40 homepages and checks each peer, which takes
+# minutes: far longer than a page visit may wait. A visit only reads a finished
+# cohort; if there is none it queues the prospect, and the scheduled task
+# (/api/tasks/build-cohorts) builds it. The next visit, or the PDF, shows it.
+
+def cached_cohort(ap: ApolloResult, sector: str | None, sector_key: str | None) -> dict | None:
+    done = kv.get("cohort_built", ap.domain)
+    if _fresh(done):
+        return done
+    if kv.get("cohort_queue", ap.domain) is None:
+        kv.put("cohort_queue", ap.domain, {"domain": ap.domain, "sector": sector,
+                                           "sector_key": sector_key, "queued_at": time.time()})
+    return None
+
+
+def build_queued(settings: Settings, llm=None, budget_s: float = 700) -> list[dict]:
+    """Build queued cohorts until the time budget runs out."""
+    start, out = time.time(), []
+    for domain in kv.keys("cohort_queue"):
+        if time.time() - start > budget_s:
+            break
+        q = kv.get("cohort_queue", domain) or {}
+        raw = kv.get("apollo", q.get("domain", domain))
+        if raw is None:
+            kv.delete("cohort_queue", domain)
+            continue
+        ap = ApolloResult(**raw)
+        cohort = build_cohort(ap, q.get("sector"), settings, llm=llm, sector_key=q.get("sector_key"))
+        kv.put("cohort_built", ap.domain, {**(cohort or {"empty": True}), "fetched_at": time.time()})
+        kv.delete("cohort_queue", domain)
+        out.append({"domain": ap.domain, "known": (cohort or {}).get("known", 0),
+                    "with_centre": (cohort or {}).get("with_centre", 0)})
+    return out

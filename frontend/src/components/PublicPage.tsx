@@ -79,8 +79,8 @@ export function PublicPage() {
 }
 
 function SnapshotBody({ data }: { data: Snapshot }) {
-  const cards = [data.market, data.technology_hub, data.indicative_scale].filter(Boolean).length;
-  const cols = cards >= 3 ? "lg:grid-cols-2 xl:grid-cols-[1fr_1fr_0.8fr]" : cards === 2 ? "lg:grid-cols-2" : "";
+  const cards = [data.market, data.technology_hub].filter(Boolean).length;
+  const cols = cards === 2 ? "lg:grid-cols-2" : "";
   const showMessage = data.message && data.mode !== "INSUFFICIENT_DATA" && data.mode !== "REJECTED";
   return (
     <>
@@ -97,9 +97,9 @@ function SnapshotBody({ data }: { data: Snapshot }) {
         <div className={`grid grid-cols-1 gap-5 ${cols}`}>
           {data.market && <MarketCard m={data.market} />}
           {data.technology_hub && <HubScoreCard s={data.technology_hub} />}
-          {data.indicative_scale && <ScaleCard scale={data.indicative_scale} />}
         </div>
       )}
+      {data.indicative_scale && <ScaleCard scale={data.indicative_scale} />}
 
       {/* What we found on their own sources */}
       {(showMessage || (data.own_evidence && data.own_evidence.length > 0)) && (
@@ -269,19 +269,20 @@ function CompanyBar({ data }: { data: Snapshot }) {
   );
 }
 
+/** Indicative scale as one compact strip: three ranges side by side. */
 function ScaleCard({ scale }: { scale: NonNullable<Snapshot["indicative_scale"]> }) {
   const kv = (k: string, v: string, sub?: string) => (
-    <div className="border-t border-line pt-3">
-      <p className="font-mono text-[11.5px] uppercase tracking-[0.1em] text-mute">{k}</p>
-      <p className="mt-0.5 font-display text-[26px] font-bold leading-tight text-navy">{v}</p>
-      {sub && <p className="text-[13px] text-mute">{sub}</p>}
+    <div className="border-t border-line pt-3 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+      <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-mute">{k}</p>
+      <p className="mt-0.5 whitespace-nowrap font-display text-[24px] font-bold leading-tight text-navy">{v}</p>
+      {sub && <p className="text-[12.5px] leading-snug text-mute">{sub}</p>}
     </div>
   );
   return (
-    <section className="flex flex-col gap-3 rounded-panel border border-line border-t-4 border-t-navy bg-[#F3F5F9] p-6">
+    <section className="grid grid-cols-1 gap-4 rounded-panel border border-line border-t-4 border-t-navy bg-[#F3F5F9] px-6 py-5 sm:grid-cols-[1.1fr_1fr_1fr_1fr] sm:items-start">
       <div>
-        <h3 className="text-[19px] font-bold text-ink">Indicative scale, if you moved</h3>
-        <p className="mt-0.5 text-sm text-mute">{scale.note}</p>
+        <h3 className="text-[17px] font-bold text-ink">Indicative scale, if you moved</h3>
+        <p className="mt-0.5 text-[12.5px] leading-snug text-mute">{scale.note}</p>
       </div>
       {kv("First phase team", scale.first_phase_team, scale.team_basis)}
       {kv("Indicative run-rate saving", scale.indicative_saving, scale.saving_basis)}

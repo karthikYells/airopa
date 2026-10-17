@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.adapters.apollo import ApolloResult
+from app.adapters.apollo import ApolloResult, normalise_domain
 from app.adapters.web_scraper import ScrapeResult
 from app.adapters.wikidata import WikidataEntity
 from app.config import Settings
@@ -24,6 +24,7 @@ from app.gate.india_gate import GateInputs
 from app.gate.title_classifier import classify_titles
 from app.reference.india_reference import SectorReference, AS_OF, SOURCE
 from app.signals.annual_report import apply_financials, fetch_report_pages, verify_financials
+from app.signals import role_history
 from app.signals.newsroom import apply_events, verify_events
 from app.signals.sector import classify_sector
 
@@ -271,6 +272,11 @@ def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
         rec.add(Evidence("HIRE.04", round(tech_share, 2), unit="tech share",
                          source_url=home, source_type=SourceType.COMPANY_SITE,
                          confidence=0.5, method=Method.DICTIONARY, as_of_date=_today()))
+    # HIRE.06: how long the listed roles have stayed open, across visits.
+    if scrape.careers_urls and scrape.resolved_host:
+        doc = role_history.observe(normalise_domain(scrape.resolved_host), scrape.job_titles,
+                                   careers_url=scrape.careers_urls[0])
+        role_history.apply_open_days(rec, doc, scrape.careers_urls[0])
     if scrape.tech_exec_named:
         rec.add(Evidence("ROUTE.01", True, source_url=home, source_type=SourceType.COMPANY_SITE,
                          confidence=0.6, method=Method.PARSER, as_of_date=_today()))

@@ -11,23 +11,21 @@ Calls and credit cost (Apollo pricing, per company):
   - organizations/{id}/job_postings (India openings)     1 credit
 Paid calls are separate switches: `apollo_enrich` (on) and `apollo_job_postings` (off).
 Leadership appointed in the last 12 months comes from two more free searches. Every response is
-cached per domain on disk for `apollo_cache_days`, so re-scoring a company costs
+cached per domain (app.data.kv) for `apollo_cache_days`, so re-scoring a company costs
 nothing. Missing fields stay None (honest UNKNOWN upstream).
 """
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 
 import httpx
 
+from app.data import kv
 from app.config import Settings
 
 _API = "https://api.apollo.io/api/v1"
 _TIMEOUT = httpx.Timeout(20.0, connect=6.0)
-_CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "apollo_cache"
 _USD_TO_EUR = 0.92  # same rough rate the Wikidata adapter uses
 
 
@@ -112,16 +110,11 @@ def parse_india_postings(data: dict) -> list[str]:
 
 
 # --- cache --------------------------------------------------------------------
-def _cache_path(domain: str) -> Path:
-    return _CACHE_DIR / f"{domain.replace('/', '_')}.json"
-
-
 def _load_cache(domain: str, max_age_days: int) -> ApolloResult | None:
-    path = _cache_path(domain)
-    if not path.exists():
+    raw = kv.get("apollo", domain)
+    if raw is None:
         return None
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
         if time.time() - raw.get("fetched_at", 0) > max_age_days * 86400:
             return None
         res = ApolloResult(**raw)
@@ -132,18 +125,13 @@ def _load_cache(domain: str, max_age_days: int) -> ApolloResult | None:
 
 
 def _save_cache(res: ApolloResult) -> None:
-    try:
-        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        _cache_path(res.domain).write_text(json.dumps(asdict(res)), encoding="utf-8")
-    except Exception:
-        pass
+    kv.put("apollo", res.domain, asdict(res))
 
 
 _TECH_EXEC_TITLES = ["chief information officer", "chief technology officer",
                      "chief digital officer", "CIO", "CTO", "CDO"]
 _BUSINESS_EXEC_TITLES = ["chief executive officer", "chief financial officer",
                          "chief operating officer", "CEO", "CFO", "COO"]
-
 
 def _recent_titles(c: httpx.Client, domain: str, titles: list[str]) -> list[str] | None:
     """Exact-title search for people in post at most 365 days. Returns their

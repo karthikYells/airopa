@@ -191,11 +191,15 @@ def _own_evidence(rec: CompanyRecord) -> list[dict]:
             line += f", about {tech_share.value:.0%} of them technology or engineering"
         bullets.append(line + ".")
         as_of = roles.as_of_date
-    if open_days:
-        bullets.append(f"Roles have stayed open around **{open_days.value} days**.")
+    # HIRE.06 is a lower bound: days since we first saw the role listed.
+    hard_to_fill = open_days is not None and isinstance(open_days.value, (int, float)) \
+        and open_days.value >= 90
+    if hard_to_fill:
+        bullets.append(f"Half of your listed roles have been open for **at least "
+                       f"{open_days.value} days**.")
         as_of = open_days.as_of_date
     if bullets:
-        panels.append({"title": ("You are hiring for roles you cannot fill" if open_days
+        panels.append({"title": ("You are hiring for roles you cannot fill" if hard_to_fill
                                  else "You are hiring now"),
                        "tone": "blue", "bullets": bullets, "as_of": as_of})
 

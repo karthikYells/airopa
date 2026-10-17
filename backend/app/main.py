@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_internal, routes_public
+from app.api import routes_internal, routes_public, routes_tasks
 from app.config import get_settings
 from app.data.store import init_db
 
@@ -30,6 +30,7 @@ app.add_middleware(
 
 app.include_router(routes_public.router, prefix="/api", tags=["public"])
 app.include_router(routes_internal.router, prefix="/api", tags=["internal"])
+app.include_router(routes_tasks.router, prefix="/api", tags=["tasks"])
 
 
 @app.on_event("startup")

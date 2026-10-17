@@ -98,6 +98,11 @@ class Settings(BaseSettings):
     # Signs the snapshot the page carries, so reports work after a restart.
     # Any long random string; the same on every server instance.
     snapshot_signing_key: str = ""
+    # Where state that must survive restarts lives: "firestore" on Cloud Run
+    # (role first-seen dates, saved sectors, Apollo cache), "file" locally.
+    store_backend: str = "file"
+    # Shared secret for the scheduled careers re-check (/api/tasks/...). Empty = off.
+    task_key: str = ""
 
     # --- geography (X14) ---
     target_geography: str = "NL,BE,DE,UK,Nordics,FR"

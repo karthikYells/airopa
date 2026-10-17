@@ -177,6 +177,21 @@ def _apply_apollo_firmographics(rec: CompanyRecord, ap: ApolloResult) -> None:
     if ap.employees and missing("SCALE.04"):
         rec.add(Evidence("SCALE.04", ap.employees, unit="people", confidence=0.55, **common))
 
+    # Leadership appointed within the 12 months before the check (PRESS.10/11).
+    # Titles only: names stay out of the record, and the public page names nobody.
+    if ap.leadership_checked:
+        people = dict(source_url=ap.source_url, source_type=SourceType.PEOPLE_DATA,
+                      source_authority=SourceAuthority.SECONDARY, method=Method.API,
+                      as_of_date=ap.as_of, confidence=0.6)
+        rec.add(Evidence("PRESS.10", bool(ap.new_tech_leaders),
+                         notes=("appointed within 12 months: " + ", ".join(ap.new_tech_leaders)
+                                if ap.new_tech_leaders else "no CIO/CTO/CDO appointed within 12 months"),
+                         **people))
+        rec.add(Evidence("PRESS.11", bool(ap.new_business_leaders),
+                         notes=("appointed within 12 months: " + ", ".join(ap.new_business_leaders)
+                                if ap.new_business_leaders else "no CEO/CFO/COO appointed within 12 months"),
+                         **people))
+
 
 def collect_live(rec: CompanyRecord, scrape: ScrapeResult, wd: WikidataEntity,
                  ref: SectorReference, settings: Settings, llm=None,

@@ -23,7 +23,12 @@ class Settings(BaseSettings):
     apollo_api_key: str = ""
     # Enrich + job postings cost 1 credit each per company; people search is free.
     # Off by default: the free India people search is what the gate needs.
-    apollo_paid_calls: bool = False
+    apollo_paid_calls: bool = False   # legacy switch: turns on both paid calls below
+    # Company lookup: revenue, headcount, founded (1 credit per new company).
+    # On by Airopa decision 2026-10-17.
+    apollo_enrich: bool = True
+    # India job postings (1 credit per new company). Off.
+    apollo_job_postings: bool = False
     apollo_cache_days: int = 30
     # Profiles Apollo must hold for a company before "0 in India" counts as
     # evidence of no India presence (TUNE).

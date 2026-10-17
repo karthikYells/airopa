@@ -60,6 +60,8 @@ def _pressure(rec: CompanyRecord) -> DimensionScore:
         ev = rec.get(sid)
         if ev is None or not ev.is_resolved:
             continue
+        if ev.value in (False, None, 0, "", [], {}):
+            continue  # a checked "no event" is evidence of absence, not pressure
         fw = freshness_weight(ev.as_of_date)
         if fw > 0:
             pts += w * fw

@@ -18,6 +18,7 @@ from app.data.records import (
     CompanyRecord, GateVerdict, ResponseMode, ScoreResult,
 )
 from app.pipeline.orchestrator import PipelineOutcome
+from app.scoring.common import freshness_weight
 
 
 _QUESTIONS = {
@@ -193,10 +194,13 @@ def _own_evidence(rec: CompanyRecord) -> list[dict]:
     bullets, as_of = [], None
     for sid, text in [("PRESS.05", "An **S/4HANA migration** is in flight or ECC end of support applies."),
                       ("PRESS.10", "A **new technology executive** was appointed in the last 12 months."),
+                      ("PRESS.11", "A **new CEO, CFO or COO** was appointed in the last 12 months."),
                       ("PRESS.03", "A **cost programme** with a stated target and deadline is public."),
                       ("PRESS.01", "Your latest results show **operating margin under pressure**.")]:
         ev = _resolved(rec, sid)
-        if ev and ev.as_of_date:
+        # Only a real, dated event that is still fresh: a checked "no" is not news.
+        if (ev and ev.as_of_date and ev.value not in (False, None, 0, "", [], {})
+                and freshness_weight(ev.as_of_date) > 0):
             bullets.append(text); as_of = as_of or ev.as_of_date
     erp = _resolved(rec, "SCOPE.01")
     if erp and _resolved(rec, "PRESS.05"):

@@ -151,3 +151,19 @@ def test_ambiguous_rule_ignores_tiny_samples():
                       india_titles=["Sales Manager", "Associate"])
     _, gi = _run(ap)
     assert run_gate(gi, S).verdict is GateVerdict.CLEAR_GREENFIELD
+
+
+def test_leadership_change_becomes_dated_pressure_but_no_change_does_not():
+    from app.scoring.gcc_fit import score_gcc_fit
+    yes = ApolloResult(found=True, domain="example.de", org_id="abc", leadership_checked=True,
+                       new_tech_leaders=["CIO"], fetched_at=__import__("time").time())
+    rec, _ = _run(yes)
+    assert rec.get("PRESS.10").value is True and "CIO" in rec.get("PRESS.10").notes
+    pressure_yes = next(d for d in score_gcc_fit(rec, S).dimensions if d.name == "Dated pressure").points
+
+    no = ApolloResult(found=True, domain="example.de", org_id="abc", leadership_checked=True,
+                      fetched_at=__import__("time").time())
+    rec2, _ = _run(no)
+    assert rec2.get("PRESS.10").value is False
+    pressure_no = next(d for d in score_gcc_fit(rec2, S).dimensions if d.name == "Dated pressure").points
+    assert pressure_yes > pressure_no == 0

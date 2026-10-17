@@ -9,7 +9,8 @@ Calls and credit cost (Apollo pricing, per company):
   - people api_search (India-located staff + titles)     free
   - organizations/enrich (revenue, headcount, founded)   1 credit
   - organizations/{id}/job_postings (India openings)     1 credit
-The two paid calls run only when `apollo_paid_calls` is on (off by default). Every response is
+Paid calls are separate switches: `apollo_enrich` (on) and `apollo_job_postings` (off).
+Leadership appointed in the last 12 months comes from two more free searches. Every response is
 cached per domain on disk for `apollo_cache_days`, so re-scoring a company costs
 nothing. Missing fields stay None (honest UNKNOWN upstream).
 """
@@ -46,6 +47,9 @@ class ApolloResult:
     india_titles: list[str] = field(default_factory=list)
     india_job_titles: list[str] = field(default_factory=list)
     job_postings_checked: bool = False
+    leadership_checked: bool = False
+    new_tech_leaders: list[str] = field(default_factory=list)      # titles, last 365 days
+    new_business_leaders: list[str] = field(default_factory=list)  # titles, last 365 days
     credits_used: int = 0
     from_cache: bool = False
     fetched_at: float = 0.0
@@ -135,6 +139,28 @@ def _save_cache(res: ApolloResult) -> None:
         pass
 
 
+_TECH_EXEC_TITLES = ["chief information officer", "chief technology officer",
+                     "chief digital officer", "CIO", "CTO", "CDO"]
+_BUSINESS_EXEC_TITLES = ["chief executive officer", "chief financial officer",
+                         "chief operating officer", "CEO", "CFO", "COO"]
+
+
+def _recent_titles(c: httpx.Client, domain: str, titles: list[str]) -> list[str] | None:
+    """Exact-title search for people in post at most 365 days. Returns their
+    titles (deduplicated), [] for none, None if the search itself failed."""
+    try:
+        r = c.post(f"{_API}/mixed_people/api_search", json={
+            "q_organization_domains_list": [domain], "person_titles": titles,
+            "include_similar_titles": False,
+            "person_days_in_current_title_range": {"max": 365},
+            "per_page": 10, "page": 1})
+        r.raise_for_status()
+        _, found = parse_people(r.json())
+        return list(dict.fromkeys(found))
+    except Exception:
+        return None
+
+
 # --- live fetch -----------------------------------------------------------------
 def fetch(host: str, settings: Settings) -> ApolloResult | None:
     """Apollo data for a domain, or None when Apollo is off or unreachable."""
@@ -170,9 +196,17 @@ def fetch(host: str, settings: Settings) -> ApolloResult | None:
         except Exception:
             return None
 
+        # Free: leadership appointed in the last 12 months (PRESS.10 / PRESS.11).
+        # Titles only; names never leave the engine.
+        res.new_tech_leaders = _recent_titles(c, domain, _TECH_EXEC_TITLES)
+        res.new_business_leaders = _recent_titles(c, domain, _BUSINESS_EXEC_TITLES)
+        res.leadership_checked = res.new_tech_leaders is not None
+        res.new_tech_leaders = res.new_tech_leaders or []
+        res.new_business_leaders = res.new_business_leaders or []
+
         # Paid calls: each guarded separately so a later failure never discards
         # data a credit was already spent on.
-        if settings.apollo_paid_calls:
+        if settings.apollo_paid_calls or settings.apollo_enrich:
             try:
                 r = c.get(f"{_API}/organizations/enrich", params={"domain": domain})
                 if r.status_code < 400:
@@ -183,16 +217,16 @@ def fetch(host: str, settings: Settings) -> ApolloResult | None:
                             setattr(res, k, v)
             except Exception:
                 pass
-            if res.org_id:
-                try:
-                    r = c.get(f"{_API}/organizations/{res.org_id}/job_postings",
-                              params={"per_page": 1000})
-                    if r.status_code < 400:
-                        res.credits_used += 1
-                        res.job_postings_checked = True
-                        res.india_job_titles = parse_india_postings(r.json())
-                except Exception:
-                    pass
+        if res.org_id and (settings.apollo_paid_calls or settings.apollo_job_postings):
+            try:
+                r = c.get(f"{_API}/organizations/{res.org_id}/job_postings",
+                          params={"per_page": 1000})
+                if r.status_code < 400:
+                    res.credits_used += 1
+                    res.job_postings_checked = True
+                    res.india_job_titles = parse_india_postings(r.json())
+            except Exception:
+                pass
 
     # Found = Apollo knows the company well enough that its India count means
     # something. A handful of profiles is too thin to call "no India staff".

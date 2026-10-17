@@ -47,8 +47,10 @@ def test_candidates_outside_the_sector_are_dropped(monkeypatch):
                         "consumer_goods" if p["name"] == "fashion"
                         else None if p["name"] == "pump" else "precision_components")
     monkeypatch.setattr(peers, "check_peer", lambda p, s, llm=None: {**p, "status": "yes", "india_profiles": 1})
+    c = peers.build_cohort(ap, "Precision components", None, sector_key="precision_components")
+    assert [p["name"] for p in c["peers"]] == ["press", "pump"]   # exact sector, then unreadable
     c = peers.build_cohort(ap, "Industrial machinery", None, sector_key="industrial_machinery")
-    assert [p["name"] for p in c["peers"]] == ["press", "pump"]
+    assert [p["name"] for p in c["peers"]] == ["pump", "press"]   # unreadable before family
 
 
 def test_visit_queues_and_task_builds(monkeypatch):

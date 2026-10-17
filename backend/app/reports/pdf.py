@@ -67,7 +67,7 @@ def _header(canvas, doc):
     canvas.drawRightString(w - 18 * mm, h - 15.5 * mm, "with founding partner Airopa Global")
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
-    canvas.drawString(18 * mm, 10 * mm, "accessindia.nl  ·  connect@airopa.co")
+    canvas.drawString(18 * mm, 10 * mm, "accessindia.nl  ·  accessindia@airopa.co")
     canvas.drawRightString(w - 18 * mm, 10 * mm, f"Page {doc.page}")
     canvas.restoreState()
 
@@ -167,7 +167,7 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
                      Paragraph(f'<font color="#F3F2EF">{_esc(lc["offer"])}</font>', _S["body"]),
                      Spacer(1, 4),
                      Paragraph('<font color="#E8791C"><b>Reply to this email or write to '
-                               'connect@airopa.co to request it.</b></font>', _S["body"])]]])
+                               'accessindia@airopa.co to request it.</b></font>', _S["body"])]]])
         t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), BAND),
                                ("LEFTPADDING", (0, 0), (-1, -1), 12),
                                ("RIGHTPADDING", (0, 0), (-1, -1), 12),

@@ -1,5 +1,5 @@
 """Sends the snapshot PDF (Section 9.5). Provider is configuration:
-  graph   -> Microsoft Graph sendMail from connect@airopa.co, exactly as the
+  graph   -> Microsoft Graph sendMail (from accessindia@airopa.co), exactly as the
              accessindia.nl send-report function does (same Entra app:
              MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET with Mail.Send)
   smtp    -> any SMTP server with STARTTLS

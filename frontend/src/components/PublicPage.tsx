@@ -320,7 +320,7 @@ function ReportForm({ data }: { data: Snapshot }) {
       } else if (r === "rate_limited") {
         setMsg("You have requested several reports in a short time. Please try again later.");
       } else {
-        setMsg("Something went wrong. Please try again, or email connect@airopa.co.");
+        setMsg("Something went wrong. Please try again, or email accessindia@airopa.co.");
       }
     } finally {
       setBusy(false);
@@ -382,7 +382,7 @@ function ReportForm({ data }: { data: Snapshot }) {
             </button>
           </div>
           <p className="mt-3 text-xs text-mute">
-            Your report is sent by our partner Airopa Global from connect@airopa.co. We use your details only to
+            Your report is sent by our partner Airopa Global from accessindia@airopa.co. We use your details only to
             send this report and, if you ticked the box, to arrange the call.{" "}
             <a href="/privacy/" target="_blank" rel="noreferrer">Privacy notice</a>
           </p>

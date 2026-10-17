@@ -72,10 +72,10 @@ class Settings(BaseSettings):
     ms_tenant_id: str = ""
     ms_client_id: str = ""
     ms_client_secret: str = ""
-    report_sender: str = "connect@airopa.co"
+    report_sender: str = "accessindia@airopa.co"
     report_sender_name: str = "Access India Netherlands"
-    mail_from: str = "Access India Netherlands <connect@airopa.co>"
-    mail_notify: str = "connect@airopa.co"   # gets a copy of every request
+    mail_from: str = "Access India Netherlands <accessindia@airopa.co>"
+    mail_notify: str = "accessindia@airopa.co"   # gets a copy of every request
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""

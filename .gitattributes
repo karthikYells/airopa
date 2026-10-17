@@ -1,0 +1,3 @@
+# Container files must keep Unix line endings or the start command breaks.
+Dockerfile text eol=lf
+*.sh text eol=lf

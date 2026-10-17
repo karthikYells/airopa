@@ -45,7 +45,7 @@ Deploy (from the repository root, with the Google Cloud CLI installed and
 `gcloud auth login` done):
 
 ```bash
-gcloud config set project accessindia-engine
+gcloud config set project project-932d6b0a-4698-46e2-bd4   # "accessindia-engine" (display name)
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
 gcloud run deploy india-market-assessment --source backend --region europe-west1 \
   --allow-unauthenticated --memory 1Gi --cpu 1 --timeout 300 \

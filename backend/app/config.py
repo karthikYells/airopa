@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # v1 India reference table, which is not yet a licensed, sourced dataset
     # (Section 12 item 4). Until Airopa approves a source they are computed and
     # shown internally, but never published on the public page.
-    publish_reference_scores: bool = False   # indicative scale (team size, saving ranges)
+    publish_reference_scores: bool = True    # indicative scale (team size, saving ranges)
     # Technology Hub Readiness card, labelled indicative and sector-level.
     publish_tech_hub: bool = True
     # Market access view on the public page (Airopa decision 2026-10-17): the

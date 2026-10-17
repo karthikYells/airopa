@@ -23,13 +23,17 @@ def _rec(sector_key: str) -> CompanyRecord:
     return rec
 
 
-def test_strong_sector_gets_six_worded_dimensions_without_figures():
+def test_strong_sector_gets_six_reasoned_dimensions_with_ranges_only():
     m = _market_insights(_rec("precision_components"), S)
     assert m is not None and m["score"] >= 50
     assert len(m["dimensions"]) == 6
-    assert m["headline"] and "Indicative" in m["basis"]
+    assert m["headline"] and "Indicative" in m["basis"] and m["why"]
     text = " ".join([m["headline"], m["basis"]] + [d["insight"] for d in m["dimensions"]])
-    assert not re.search(r"\d|EUR|%", text), "raw reference figures must stay internal"
+    assert "EUR 10 to 15bn" in text   # the sector market, as a band
+    # Figures are shown only as ranges (Section 9.1): strip "N to M" bands and
+    # nothing numeric may remain.
+    rest = re.sub(r"(EUR )?\d[\d,.]* to \d[\d,.]*(bn|m|%| weeks| months)?", "", text)
+    assert not re.search(r"\d", rest), rest
 
 
 def test_weak_market_makes_no_claim():

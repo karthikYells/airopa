@@ -157,10 +157,16 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
     scale = payload.get("indicative_scale")
     if scale:
         story.append(Paragraph("Indicative scale, if you moved", _S["h2"]))
-        story.append(Paragraph(
-            f'First phase team <b>{_esc(scale["first_phase_team"])}</b>  ·  saving '
-            f'<b>{_esc(scale["indicative_saving"])}</b>  ·  first team live in '
-            f'<b>{_esc(scale["time_to_first_team_live"])}</b>. {_esc(scale["note"])}', _S["body"]))
+        rows = [[Paragraph(f"<b>{k}</b>", _S["body"]), Paragraph(f"<b>{_esc(v)}</b>", _S["body"]),
+                 Paragraph(_esc(sub or ""), _S["muted"])]
+                for k, v, sub in (("First phase team", scale["first_phase_team"], scale.get("team_basis")),
+                                  ("Indicative run-rate saving", scale["indicative_saving"], scale.get("saving_basis")),
+                                  ("Time to first team live", scale["time_to_first_team_live"], scale.get("time_basis")))]
+        t = Table(rows, colWidths=[48 * mm, 36 * mm, None])
+        t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                               ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
+                               ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
+        story += [t, Paragraph(_esc(scale["note"]), _S["muted"]), Spacer(1, 8)]
 
     evidence = payload.get("own_evidence") or []
     if evidence:

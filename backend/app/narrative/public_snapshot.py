@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 
 from app.config import Settings
+from app.narrative.reasoning import indicative_scale, reason_for
 from app.data.records import (
     CompanyRecord, GateVerdict, ResponseMode, ScoreResult,
 )
@@ -133,7 +134,8 @@ def _tech_hub_card(rec: CompanyRecord, settings: Settings) -> dict | None:
         m = re.search(r"Candidate cities ([^;]+)", d.basis)
         reason = _TECH_REASON.get(d.name, ("", "", ""))[_level_idx(level)].format(
             stack=stack_txt, cities=f", such as {m.group(1).strip()}" if m else "")
-        if d.name == "Hiring velocity" and open_days and isinstance(open_days.value, (int, float)) \
+        reason = reason_for(rec, d) or reason
+        if not reason_for(rec, d) and d.name == "Hiring velocity" and open_days and isinstance(open_days.value, (int, float)) \
                 and open_days.value >= 90:
             reason = (f"Half of your listed roles have been open at least {open_days.value} days; "
                       "comparable roles fill faster in India.")
@@ -206,9 +208,7 @@ def _market_insights(rec: CompanyRecord, settings: Settings) -> dict | None:
             continue  # e.g. China plus one for software: hide, don't call it weak
         level = _word_level(d.points, d.max_points)
         texts = _INSIGHT.get(d.name)
-        reason = texts[_level_idx(level)] if texts else ""
-        if d.name == "Route to market":
-            reason += " " + _route_fact(rec)
+        reason = reason_for(rec, d) or (texts[_level_idx(level)] if texts else "")
         shown.append(d)
         dims.append({"name": d.name, "level": level, "insight": reason.strip()})
     return {
@@ -499,13 +499,7 @@ def build_snapshot(outcome: PipelineOutcome, settings: Settings,
     base["market"] = _market_insights(rec, settings)               # block 4, market access
     base["technology_hub"] = _tech_hub_card(rec, settings)  # block 5
     if settings.publish_reference_scores:                          # block 6, ranges only
-        base["indicative_scale"] = {
-            "first_phase_team": "20 to 35 people",
-            "indicative_saving": "50 to 60%",
-            "saving_basis": "on the fully loaded cost of comparable roles",
-            "time_to_first_team_live": "4 to 6 months",
-            "note": "Ranges only. Your actual numbers depend on scope.",
-        }
+        base["indicative_scale"] = indicative_scale(rec)
     base["own_evidence"] = _own_evidence(rec)                      # block 7
     base["withheld"] = _WITHHELD                                   # block 8
     base["lead_capture"] = {                                       # block 9

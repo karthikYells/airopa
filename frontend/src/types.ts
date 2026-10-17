@@ -84,9 +84,11 @@ export interface Snapshot {
   technology_hub?: HubCard | null;
   indicative_scale?: {
     first_phase_team: string;
+    team_basis?: string;
     indicative_saving: string;
     saving_basis?: string;
     time_to_first_team_live: string;
+    time_basis?: string;
     note: string;
   };
   own_evidence?: OwnEvidence[];

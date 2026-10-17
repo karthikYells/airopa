@@ -80,7 +80,7 @@ export function PublicPage() {
 
 function SnapshotBody({ data }: { data: Snapshot }) {
   const cards = [data.market, data.technology_hub, data.indicative_scale].filter(Boolean).length;
-  const cols = cards >= 3 ? "lg:grid-cols-3" : cards === 2 ? "lg:grid-cols-2" : "";
+  const cols = cards >= 3 ? "lg:grid-cols-2 xl:grid-cols-[1fr_1fr_0.8fr]" : cards === 2 ? "lg:grid-cols-2" : "";
   const showMessage = data.message && data.mode !== "INSUFFICIENT_DATA" && data.mode !== "REJECTED";
   return (
     <>
@@ -257,19 +257,21 @@ function CompanyBar({ data }: { data: Snapshot }) {
 
 function ScaleCard({ scale }: { scale: NonNullable<Snapshot["indicative_scale"]> }) {
   const kv = (k: string, v: string, sub?: string) => (
-    <div className="mt-4">
-      <p className="text-[13.5px] text-band-muted">{k}</p>
-      <p className="font-display text-2xl font-bold text-orange">{v}</p>
-      {sub && <p className="text-xs text-band-muted">{sub}</p>}
+    <div className="border-t border-line pt-3">
+      <p className="font-mono text-[11.5px] uppercase tracking-[0.1em] text-mute">{k}</p>
+      <p className="mt-0.5 font-display text-[26px] font-bold leading-tight text-navy">{v}</p>
+      {sub && <p className="text-[13px] text-mute">{sub}</p>}
     </div>
   );
   return (
-    <section className="rounded-panel bg-navy p-6 text-band-fg">
-      <h3 className="text-[21px] font-bold">Indicative scale, if you moved</h3>
-      <p className="mt-0.5 text-sm text-band-muted">{scale.note}</p>
-      {kv("First phase team", scale.first_phase_team)}
+    <section className="flex flex-col gap-3 rounded-panel border border-line border-t-4 border-t-navy bg-[#F3F5F9] p-6">
+      <div>
+        <h3 className="text-[19px] font-bold text-ink">Indicative scale, if you moved</h3>
+        <p className="mt-0.5 text-sm text-mute">{scale.note}</p>
+      </div>
+      {kv("First phase team", scale.first_phase_team, scale.team_basis)}
       {kv("Indicative run-rate saving", scale.indicative_saving, scale.saving_basis)}
-      {kv("Time to first team live", scale.time_to_first_team_live)}
+      {kv("Time to first team live", scale.time_to_first_team_live, scale.time_basis)}
     </section>
   );
 }

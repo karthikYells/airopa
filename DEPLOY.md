@@ -53,6 +53,11 @@ gcloud run deploy india-market-assessment --source backend --region europe-west1
   --set-env-vars "CORS_ORIGINS=https://accessindia.nl,ENABLE_INTERNAL=false,PUBLISH_REFERENCE_SCORES=false,MAIL_PROVIDER=graph,MAIL_NOTIFY=connect@airopa.co,PUBLIC_SITE_URL=https://accessindia.nl/engines/india-market-assessment/"
 ```
 
+Use the settings file, not `--set-env-vars`: on Windows the `^;^` separator
+needed for the commas is mangled and the settings silently fall back to the
+defaults (internal view on, any website allowed). Check with
+`gcloud run services describe india-market-assessment --region europe-west1`.
+
 The command prints the engine's address, `https://india-market-assessment-….run.app`.
 `backend/.gcloudignore` keeps `.env`, local data and tests out of the upload.
 

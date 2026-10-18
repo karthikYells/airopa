@@ -1,0 +1,952 @@
+{
+ "goods": [
+  {
+   "id": "eng_steel",
+   "sector": "engineering_auto",
+   "label": "Iron and steel",
+   "hs": "HS 72",
+   "ext_2025": 39037190147,
+   "ext_cagr": -0.037253048987581416,
+   "in_2025": 3211559182,
+   "in_cagr": -0.1025944775891029,
+   "in_share": 0.0822692199388948,
+   "cn_share": 0.10760154893788647,
+   "top_countries": [
+    [
+     "IT",
+     1133857150
+    ],
+    [
+     "BE",
+     610333212
+    ],
+    [
+     "ES",
+     425636804
+    ]
+   ],
+   "note": "India's supply is falling (-10%/yr). Steel is in CBAM scope and under EU safeguard quotas, so readiness matters more than demand here."
+  },
+  {
+   "id": "eng_steelart",
+   "sector": "engineering_auto",
+   "label": "Articles of iron and steel (incl. fasteners, castings, forgings)",
+   "hs": "HS 73",
+   "ext_2025": 35406075537,
+   "ext_cagr": 0.028187192167433928,
+   "in_2025": 1830665758,
+   "in_cagr": -0.008219698162721056,
+   "in_share": 0.051704848115316275,
+   "cn_share": 0.39936306062002175,
+   "top_countries": [
+    [
+     "DE",
+     410678071
+    ],
+    [
+     "NL",
+     230800795
+    ],
+    [
+     "IT",
+     220416081
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "eng_mach",
+   "sector": "engineering_auto",
+   "label": "Machinery and mechanical equipment (pumps, valves, engines, parts)",
+   "hs": "HS 84",
+   "ext_2025": 308815830414,
+   "ext_cagr": 0.06805291139178049,
+   "in_2025": 5613783106,
+   "in_cagr": 0.037944728824739204,
+   "in_share": 0.01817841753278689,
+   "cn_share": 0.3463697701202782,
+   "top_countries": [
+    [
+     "DE",
+     1523139155
+    ],
+    [
+     "FR",
+     1008310825
+    ],
+    [
+     "IT",
+     735156768
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "eng_auto",
+   "sector": "engineering_auto",
+   "label": "Motor vehicle parts and accessories",
+   "hs": "HS 8708",
+   "ext_2025": 30221352958,
+   "ext_cagr": 0.013464696206811677,
+   "in_2025": 1439805451,
+   "in_cagr": 0.05670674310898849,
+   "in_share": 0.04764199183937806,
+   "cn_share": 0.2738160769804143,
+   "top_countries": [
+    [
+     "DE",
+     267577843
+    ],
+    [
+     "IT",
+     216169969
+    ],
+    [
+     "FR",
+     140562403
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "chem_inorg",
+   "sector": "chemicals_pharma",
+   "label": "Inorganic chemicals",
+   "hs": "HS 28",
+   "ext_2025": 19652789867,
+   "ext_cagr": -0.05515574063732109,
+   "in_2025": 448113879,
+   "in_cagr": 0.2503786170127924,
+   "in_share": 0.022801540240983843,
+   "cn_share": 0.12042264833726979,
+   "top_countries": [
+    [
+     "IT",
+     67534242
+    ],
+    [
+     "DE",
+     62893221
+    ],
+    [
+     "ES",
+     53589449
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "chem_org",
+   "sector": "chemicals_pharma",
+   "label": "Organic chemicals (incl. APIs and intermediates)",
+   "hs": "HS 29",
+   "ext_2025": 107688354354,
+   "ext_cagr": 0.06557805622958068,
+   "in_2025": 10743494596,
+   "in_cagr": 0.2673553939596116,
+   "in_share": 0.09976468356720637,
+   "cn_share": 0.31637239713965887,
+   "top_countries": [
+    [
+     "SI",
+     5225895307
+    ],
+    [
+     "DE",
+     1101459532
+    ],
+    [
+     "IT",
+     977698262
+    ]
+   ],
+   "note": "India's strongest position: 10% of non-EU supply and growing 27% a year. Slovenia tops the importers (see the Slovenia country row)."
+  },
+  {
+   "id": "chem_pharma",
+   "sector": "chemicals_pharma",
+   "label": "Pharmaceutical products (finished medicines)",
+   "hs": "HS 30",
+   "ext_2025": 117212133713,
+   "ext_cagr": 0.054317566950073726,
+   "in_2025": 2935546390,
+   "in_cagr": 0.03156028073760386,
+   "in_share": 0.02504473126637075,
+   "cn_share": 0.04589515374041316,
+   "top_countries": [
+    [
+     "DE",
+     649065951
+    ],
+    [
+     "BE",
+     383894304
+    ],
+    [
+     "NL",
+     379878059
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "chem_dyes",
+   "sector": "chemicals_pharma",
+   "label": "Dyes, pigments, paints",
+   "hs": "HS 32",
+   "ext_2025": 7648314942,
+   "ext_cagr": -0.008130188874474475,
+   "in_2025": 532885320,
+   "in_cagr": 0.03812870290231207,
+   "in_share": 0.06967355869117138,
+   "cn_share": 0.14729728895099675,
+   "top_countries": [
+    [
+     "DE",
+     133240088
+    ],
+    [
+     "IT",
+     118676456
+    ],
+    [
+     "NL",
+     77038984
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "chem_misc",
+   "sector": "chemicals_pharma",
+   "label": "Miscellaneous chemical products (agrochemicals, catalysts)",
+   "hs": "HS 38",
+   "ext_2025": 25726179927,
+   "ext_cagr": -0.08513903456506566,
+   "in_2025": 637303526,
+   "in_cagr": 0.17364969103176442,
+   "in_share": 0.02477256739276478,
+   "cn_share": 0.0864336320553481,
+   "top_countries": [
+    [
+     "DE",
+     204951981
+    ],
+    [
+     "FR",
+     100642126
+    ],
+    [
+     "NL",
+     99420097
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "tex_fabric",
+   "sector": "textiles_apparel_leather",
+   "label": "Textile fibres, yarns and fabrics",
+   "hs": "HS 50 to 60",
+   "ext_2025": 20308777580,
+   "ext_cagr": -0.019004795201822744,
+   "in_2025": 1444087062,
+   "in_cagr": -0.030585109276994427,
+   "in_share": 0.07110654771373984,
+   "cn_share": 0.33373448211253687,
+   "top_countries": [
+    [
+     "IT",
+     263923154
+    ],
+    [
+     "DE",
+     218473138
+    ],
+    [
+     "NL",
+     144314980
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "tex_apparel",
+   "sector": "textiles_apparel_leather",
+   "label": "Apparel, knitted and woven",
+   "hs": "HS 61, 62",
+   "ext_2025": 94602196280,
+   "ext_cagr": 0.050170587121837196,
+   "in_2025": 4532642426,
+   "in_cagr": 0.05002017974473971,
+   "in_share": 0.04791265535299473,
+   "cn_share": 0.32132141826845123,
+   "top_countries": [
+    [
+     "DE",
+     961875910
+    ],
+    [
+     "FR",
+     719495840
+    ],
+    [
+     "NL",
+     689334423
+    ]
+   ],
+   "note": "Large market (EUR 95bn). India pays the standard tariff while some competitors pay zero; see the textile tariff rule."
+  },
+  {
+   "id": "tex_madeups",
+   "sector": "textiles_apparel_leather",
+   "label": "Home textiles and made-ups",
+   "hs": "HS 63",
+   "ext_2025": 12527140318,
+   "ext_cagr": 0.0765641076696768,
+   "in_2025": 1243428210,
+   "in_cagr": 0.09770518796014138,
+   "in_share": 0.09925874369055662,
+   "cn_share": 0.4331402767320707,
+   "top_countries": [
+    [
+     "DE",
+     208758273
+    ],
+    [
+     "FR",
+     187817413
+    ],
+    [
+     "NL",
+     173833621
+    ]
+   ],
+   "note": "India supplies nearly 10% and is growing faster than the market."
+  },
+  {
+   "id": "tex_leather",
+   "sector": "textiles_apparel_leather",
+   "label": "Leather and leather goods",
+   "hs": "HS 41, 42",
+   "ext_2025": 13525126486,
+   "ext_cagr": -0.00662944140996069,
+   "in_2025": 1271038441,
+   "in_cagr": 0.022962755601545703,
+   "in_share": 0.09397608534867789,
+   "cn_share": 0.5140903811285806,
+   "top_countries": [
+    [
+     "DE",
+     280407733
+    ],
+    [
+     "IT",
+     201152067
+    ],
+    [
+     "FR",
+     196828388
+    ]
+   ],
+   "note": null
+  },
+  {
+   "id": "tex_footwear",
+   "sector": "textiles_apparel_leather",
+   "label": "Footwear",
+   "hs": "HS 64",
+   "ext_2025": 24648025433,
+   "ext_cagr": 0.02255622402763069,
+   "in_2025": 1108958775,
+   "in_cagr": -0.04668752583300295,
+   "in_share": 0.04499178962689932,
+   "cn_share": 0.3644926731928693,
+   "top_countries": [
+    [
+     "DE",
+     294819071
+    ],
+    [
+     "FR",
+     138307823
+    ],
+    [
+     "NL",
+     129076733
+    ]
+   ],
+   "note": null
+  }
+ ],
+ "services": [
+  {
+   "id": "svc_ict",
+   "label": "Telecommunications, computer and information services",
+   "code": "SI",
+   "ext_2024": 124968800000.0,
+   "ext_cagr": 0.0705822202344839,
+   "in_2024": 10244400000.0,
+   "in_cagr": 0.04867322264070184,
+   "in_share": 0.0819756611250168,
+   "note": "Software, IT services, cloud and data. India holds about 8% of the EU's imports from outside the EU."
+  },
+  {
+   "id": "svc_obs",
+   "label": "Other business services (consulting, R&D, BPO, engineering)",
+   "code": "SJ",
+   "ext_2024": 427672000000.0,
+   "ext_cagr": 0.06263840897828588,
+   "in_2024": 18022400000.0,
+   "in_cagr": 0.16835530457063674,
+   "in_share": 0.04214070596157803,
+   "note": "India's sales grew 17% a year, about three times the market."
+  },
+  {
+   "id": "svc_tech",
+   "label": "Technical and trade-related services (incl. engineering services)",
+   "code": "SJ3",
+   "ext_2024": 151828400000.0,
+   "ext_cagr": 0.04697297773242792,
+   "in_2024": 5699900000.0,
+   "in_cagr": 0.19242710710862987,
+   "in_share": 0.03754172473661054,
+   "note": "Engineering and technical services: India's share is small but growing 19% a year."
+  }
+ ],
+ "rules": [
+  {
+   "id": "r_cbam_steel",
+   "sector": "Engineering and auto components",
+   "title": "Carbon border tax (CBAM) on iron and steel",
+   "text": "Iron and steel (HS 72 and many HS 73 lines, including fasteners) and aluminium are in scope. The definitive regime has applied since 1 January 2026. Certificates go on sale on 1 February 2027, and the first annual declaration (for 2026 imports) is due on 30 September 2027. The EU importer needs verified emissions data from the Indian producer.",
+   "src": {
+    "url": "https://taxation-customs.ec.europa.eu/carbon-border-adjustment-mechanism/cbam-communication-and-news_en",
+    "label": "European Commission, CBAM"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_machinery",
+   "sector": "Engineering and auto components",
+   "title": "CE marking for machinery",
+   "text": "Machinery sold in the EU needs CE marking under the Machinery Directive 2006/42/EC, replaced by the Machinery Regulation (EU) 2023/1230, which applies from 20 January 2027.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2023/1230/oj",
+    "label": "Regulation (EU) 2023/1230"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_ped",
+   "sector": "Engineering and auto components",
+   "title": "Pressure equipment (valves, fittings, vessels)",
+   "text": "Pressure Equipment Directive 2014/68/EU: conformity assessment, with a notified body for the higher-risk categories, and CE marking.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/dir/2014/68/oj",
+    "label": "Directive 2014/68/EU"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_auto",
+   "sector": "Engineering and auto components",
+   "title": "Automotive parts: buyer and type-approval requirements",
+   "text": "European carmakers and tier-1 suppliers expect IATF 16949 certification. Regulated parts (lighting, brakes, glazing and others) need UNECE type approval.",
+   "src": {
+    "url": "https://unece.org/transport/vehicle-regulations",
+    "label": "UNECE vehicle regulations"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_steel_sg",
+   "sector": "Engineering and auto components",
+   "title": "Steel import quotas",
+   "text": "The steel safeguard ended on 30 June 2026. Since 1 July 2026, Regulation (EU) 2026/1384 sets tariff-free quotas about 47% below 2024 levels and a 50% duty on imports above the quota, on top of normal duties.",
+   "src": {
+    "url": "https://trade.ec.europa.eu/access-to-markets/en/news/new-eu-safeguards-steel-imports-third-countries",
+    "label": "EU Access2Markets, new steel measure"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_reach",
+   "sector": "Chemicals and pharma",
+   "title": "REACH registration and CLP labelling",
+   "text": "Every substance placed on the EU market at 1 tonne a year or more must be registered under REACH, which a non-EU maker does through an EU-based Only Representative. Classification and labelling follow CLP.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2006/1907/oj",
+    "label": "Regulation (EC) 1907/2006"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_api",
+   "sector": "Chemicals and pharma",
+   "title": "Active pharmaceutical ingredients",
+   "text": "APIs need EU GMP and, for each shipment's source site, a written confirmation from the exporting country's regulator (India: CDSCO), under the Falsified Medicines Directive 2011/62/EU.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/dir/2011/62/oj",
+    "label": "Directive 2011/62/EU"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_fdf",
+   "sector": "Chemicals and pharma",
+   "title": "Finished medicines",
+   "text": "A marketing authorisation (EU-wide or national), EU GMP inspection of the plant, and serialisation under the falsified-medicines rules.",
+   "src": {
+    "url": "https://www.ema.europa.eu/en/human-regulatory-overview/marketing-authorisation",
+    "label": "European Medicines Agency"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_agro",
+   "sector": "Chemicals and pharma",
+   "title": "Agrochemicals",
+   "text": "Active substances must be approved under Regulation (EC) 1107/2009, and treated produce must meet EU maximum residue levels.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2009/1107/oj",
+    "label": "Regulation (EC) 1107/2009"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_cbam_chem",
+   "sector": "Chemicals and pharma",
+   "title": "Carbon border tax (CBAM) on fertilisers, ammonia and hydrogen",
+   "text": "Fertilisers, ammonia and hydrogen are also in CBAM scope; other chemicals, APIs and medicines are not.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX%3A02023R0956-20251020",
+    "label": "Regulation (EU) 2023/956, Annex I"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_tex_tariff",
+   "sector": "Textiles, apparel and leather",
+   "title": "Tariffs on Indian textiles and apparel",
+   "text": "Indian apparel pays about 9 to 12% in the EU, while Bangladesh pays zero (its preference continues to 2029 after it leaves least-developed status in November 2026). The EU–India agreement is expected to remove these tariffs once in force. In the UK, the UK–India agreement has applied since 15 July 2026. Exact rates per product come from Access2Markets in the build.",
+   "src": {
+    "url": "https://trade.ec.europa.eu/access-to-markets/en/home",
+    "label": "EU Access2Markets"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_tex_reach",
+   "sector": "Textiles, apparel and leather",
+   "title": "Chemical restrictions in textiles and leather",
+   "text": "REACH Annex XVII restricts azo dyes, chromium VI in leather and other substances. A broad restriction on PFAS chemicals has been proposed and is under evaluation by the European Chemicals Agency.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2006/1907/oj",
+    "label": "Regulation (EC) 1907/2006, Annex XVII"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_tex_label",
+   "sector": "Textiles, apparel and leather",
+   "title": "Textile labelling",
+   "text": "Fibre-composition labels under the Textile Labelling Regulation (EU) 1007/2011.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2011/1007/oj",
+    "label": "Regulation (EU) 1007/2011"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_espr",
+   "sector": "Textiles, apparel and leather",
+   "title": "Ecodesign and unsold-goods rules",
+   "text": "The Ecodesign for Sustainable Products Regulation (EU) 2024/1781 names textiles among the first product groups. Since 19 July 2026 large companies may not destroy unsold apparel, clothing accessories or footwear; medium-sized companies follow in 2030.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2024/1781/oj",
+    "label": "Regulation (EU) 2024/1781, Article 25"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_eudr",
+   "sector": "Textiles, apparel and leather",
+   "title": "Deforestation rules for cattle leather",
+   "text": "The EU Deforestation Regulation (EU) 2023/1115 covers cattle leather and requires due diligence on origin. After two postponements it applies from 30 December 2026 for large operators and 30 June 2027 for micro and small ones.",
+   "src": {
+    "url": "https://trade.ec.europa.eu/access-to-markets/en/news/delay-until-december-2026-and-other-developments-implementation-eudr-regulation",
+    "label": "EU Access2Markets, EUDR"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_forced",
+   "sector": "Textiles, apparel and leather",
+   "title": "Forced labour ban",
+   "text": "Products made with forced labour are banned from the EU market under Regulation (EU) 2024/3015, which applies from 14 December 2027.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2024/3015/oj",
+    "label": "Regulation (EU) 2024/3015"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_gdpr",
+   "sector": "IT, engineering and business services",
+   "title": "Personal data transfers (GDPR)",
+   "text": "There is no EU adequacy decision for India, so personal data sent to India needs standard contractual clauses and a transfer impact assessment.",
+   "src": {
+    "url": "https://commission.europa.eu/law/law-topic/data-protection/international-dimension-data-protection/adequacy-decisions_en",
+    "label": "European Commission, adequacy decisions"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_ai",
+   "sector": "IT, engineering and business services",
+   "title": "AI Act",
+   "text": "The AI Act (EU) 2024/1689 bans some practices, and its general-purpose AI duties are already in force. Under the Digital Omnibus agreed in May 2026, high-risk duties move to 2 December 2027 (standalone systems) and 2 August 2028 (systems in products). The page mentions the delay only once it is published in the Official Journal.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj",
+    "label": "Regulation (EU) 2024/1689"
+   },
+   "verify": true
+  },
+  {
+   "id": "r_nis2dora",
+   "sector": "IT, engineering and business services",
+   "title": "Security duties passed to IT suppliers (NIS2, DORA)",
+   "text": "NIS2 (Directive (EU) 2022/2555) and, for financial clients, DORA (Regulation (EU) 2022/2554, applying since 17 January 2025) push security, audit and contract requirements onto ICT suppliers.",
+   "src": {
+    "url": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj",
+    "label": "Regulation (EU) 2022/2554"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_onsite",
+   "sector": "IT, engineering and business services",
+   "title": "Onsite staff in Europe",
+   "text": "Staff working at client sites need intra-corporate transfer permits (Directive 2014/66/EU) or an EU Blue Card. India has social security agreements with 12 EU countries (Austria, Belgium, Czechia, Denmark, Finland, France, Germany, Hungary, Luxembourg, the Netherlands, Portugal, Sweden), so posted staff avoid double contributions there; Italy, Spain, Poland and Ireland are not covered. The UK's agreement applies since 15 July 2026.",
+   "src": {
+    "url": "https://eparlib.nic.in/bitstream/123456789/777743/1/AU1373.pdf",
+    "label": "Lok Sabha answer, India's social security agreements"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_uk",
+   "sector": "All sectors, United Kingdom",
+   "title": "UK–India trade agreement",
+   "text": "The UK–India Comprehensive Economic and Trade Agreement entered into force on 15 July 2026, together with a convention that spares posted workers double social-security contributions for up to five years.",
+   "src": {
+    "url": "https://www.business.gov.uk/campaign/alive-with-opportunity/the-uk-india-trade-deal/",
+    "label": "UK Government, UK–India trade deal"
+   },
+   "verify": false
+  },
+  {
+   "id": "r_euin",
+   "sector": "All sectors, EU",
+   "title": "EU–India trade agreement",
+   "text": "Negotiations concluded in January 2026 and the Commission sent the signature proposal to the Council in September 2026. Signing is reported for around December 2026; until it enters into force the EU's standard tariffs apply. The page states the expected timing only as reported, never as fact.",
+   "src": {
+    "url": "https://commission.europa.eu/topics/trade/eu-india-trade-agreement_en",
+    "label": "European Commission, EU–India trade agreement"
+   },
+   "verify": true
+  }
+ ],
+ "countries": [
+  {
+   "code": "DE",
+   "role": "Largest EU buyer of Indian goods; machinery, chemicals and apparel",
+   "note": null,
+   "total_in": 11634539213,
+   "share_of_eu": 0.16709349354961592,
+   "our_sectors_in": 6487610919,
+   "top_groups": [
+    [
+     "eng_mach",
+     1523139155
+    ],
+    [
+     "chem_org",
+     1101459532
+    ],
+    [
+     "tex_apparel",
+     961875910
+    ]
+   ]
+  },
+  {
+   "code": "IT",
+   "role": "Steel, chemicals and machinery buyer",
+   "note": null,
+   "total_in": 8545348092,
+   "share_of_eu": 0.12272699761881191,
+   "our_sectors_in": 4699728101,
+   "top_groups": [
+    [
+     "eng_steel",
+     1133857150
+    ],
+    [
+     "chem_org",
+     977698262
+    ],
+    [
+     "eng_mach",
+     735156768
+    ]
+   ]
+  },
+  {
+   "code": "FR",
+   "role": "Machinery and apparel buyer",
+   "note": null,
+   "total_in": 7659326739,
+   "share_of_eu": 0.11000209287424724,
+   "our_sectors_in": 3686661477,
+   "top_groups": [
+    [
+     "eng_mach",
+     1008310825
+    ],
+    [
+     "tex_apparel",
+     719495840
+    ],
+    [
+     "chem_org",
+     471156130
+    ]
+   ]
+  },
+  {
+   "code": "NL",
+   "role": "Gateway: Rotterdam port and European distribution; apparel, chemicals",
+   "note": null,
+   "total_in": 8965321871,
+   "share_of_eu": 0.12875859755135874,
+   "our_sectors_in": 3382105743,
+   "top_groups": [
+    [
+     "tex_apparel",
+     689334423
+    ],
+    [
+     "chem_org",
+     481400040
+    ],
+    [
+     "eng_mach",
+     385738118
+    ]
+   ]
+  },
+  {
+   "code": "ES",
+   "role": "Chemicals, apparel and steel buyer",
+   "note": null,
+   "total_in": 5657074417,
+   "share_of_eu": 0.08124604767763284,
+   "our_sectors_in": 3148902595,
+   "top_groups": [
+    [
+     "chem_org",
+     724807853
+    ],
+    [
+     "tex_apparel",
+     636109782
+    ],
+    [
+     "eng_steel",
+     425636804
+    ]
+   ]
+  },
+  {
+   "code": "BE",
+   "role": "Antwerp port; steel, chemicals and pharma",
+   "note": null,
+   "total_in": 5461508364,
+   "share_of_eu": 0.07843735758538008,
+   "our_sectors_in": 2567889728,
+   "top_groups": [
+    [
+     "eng_steel",
+     610333212
+    ],
+    [
+     "chem_org",
+     509244644
+    ],
+    [
+     "chem_pharma",
+     383894304
+    ]
+   ]
+  },
+  {
+   "code": "PL",
+   "role": "Fast-growing manufacturing base; apparel and machinery",
+   "note": null,
+   "total_in": 2803825719,
+   "share_of_eu": 0.04026812116190112,
+   "our_sectors_in": 1657962313,
+   "top_groups": [
+    [
+     "tex_apparel",
+     333647605
+    ],
+    [
+     "eng_mach",
+     278122319
+    ],
+    [
+     "chem_org",
+     206271851
+    ]
+   ]
+  },
+  {
+   "code": "SE",
+   "role": "Machinery and auto parts buyer",
+   "note": null,
+   "total_in": 1317293176,
+   "share_of_eu": 0.01891876547727521,
+   "our_sectors_in": 664529440,
+   "top_groups": [
+    [
+     "eng_mach",
+     194151856
+    ],
+    [
+     "tex_apparel",
+     122662340
+    ],
+    [
+     "eng_auto",
+     60277144
+    ]
+   ]
+  },
+  {
+   "code": "CZ",
+   "role": "Machinery and pharma buyer",
+   "note": null,
+   "total_in": 1770037373,
+   "share_of_eu": 0.025421009199700965,
+   "our_sectors_in": 536742883,
+   "top_groups": [
+    [
+     "eng_mach",
+     132258303
+    ],
+    [
+     "chem_pharma",
+     111453960
+    ],
+    [
+     "chem_org",
+     83962098
+    ]
+   ]
+  },
+  {
+   "code": "UK",
+   "role": "Separate market after Brexit; IT services and engineering buyer",
+   "note": "Decided: 10th market. The UK–India agreement has applied since 15 July 2026, and the UK is a leading buyer of Indian IT services. Trade figures come from HM Revenue and Customs in the build.",
+   "src": {
+    "url": "https://www.business.gov.uk/campaign/alive-with-opportunity/the-uk-india-trade-deal/",
+    "label": "UK Government, UK–India trade deal"
+   },
+   "verify": false
+  },
+  {
+   "code": "IE",
+   "role": "Chemicals and pharma (multinational plants)",
+   "note": "Decided: 11th market, behind the UK and ahead of Austria (EUR 0.50bn vs EUR 0.39bn in our sectors). Scored, but not in the top 10.",
+   "total_in": 1017733482,
+   "share_of_eu": 0.014616534432217153,
+   "our_sectors_in": 495189562,
+   "top_groups": [
+    [
+     "chem_org",
+     205612149
+    ],
+    [
+     "tex_apparel",
+     104113945
+    ],
+    [
+     "eng_steelart",
+     39724042
+    ]
+   ]
+  },
+  {
+   "code": "SI",
+   "role": "Concentrated buyer of one pharmaceutical-ingredient code",
+   "note": "Decided from the data: not in the top 10. EUR 5.19bn of its EUR 5.62bn from India is one HS code (2933, nitrogen heterocyclic compounds used as pharmaceutical ingredients), 72% of all EU imports of that code from India: one supply chain, not a broad market. Kept as a buyer in the pharmaceutical-ingredient data.",
+   "total_in": 5620495924,
+   "share_of_eu": 0.08072071289021635,
+   "our_sectors_in": 5435011865,
+   "top_groups": [
+    [
+     "chem_org",
+     5225895307
+    ],
+    [
+     "chem_pharma",
+     120675252
+    ],
+    [
+     "tex_apparel",
+     18579283
+    ]
+   ]
+  }
+ ],
+ "labels": {
+  "eng_steel": "Iron and steel",
+  "eng_steelart": "Articles of iron and steel (incl. fasteners, castings, forgings)",
+  "eng_mach": "Machinery and mechanical equipment (pumps, valves, engines, parts)",
+  "eng_auto": "Motor vehicle parts and accessories",
+  "chem_inorg": "Inorganic chemicals",
+  "chem_org": "Organic chemicals (incl. APIs and intermediates)",
+  "chem_pharma": "Pharmaceutical products (finished medicines)",
+  "chem_dyes": "Dyes, pigments, paints",
+  "chem_misc": "Miscellaneous chemical products (agrochemicals, catalysts)",
+  "tex_fabric": "Textile fibres, yarns and fabrics",
+  "tex_apparel": "Apparel, knitted and woven",
+  "tex_madeups": "Home textiles and made-ups",
+  "tex_leather": "Leather and leather goods",
+  "tex_footwear": "Footwear"
+ },
+ "meta": {
+  "version": "europe-reference-v1",
+  "as_of": "2026-10-18",
+  "sources": {
+   "goods": "Eurostat Comext DS-045409 (updated 2026-10-16), EU27 extra-EU imports, 2023-2025",
+   "services": "Eurostat bop_its6_det (updated 2026-04-16), 2022-2024",
+   "rules": "Official texts linked per rule; two rules flagged verify"
+  },
+  "top_countries": [
+   "DE",
+   "IT",
+   "FR",
+   "NL",
+   "ES",
+   "BE",
+   "PL",
+   "SE",
+   "CZ",
+   "UK"
+  ]
+ }
+}

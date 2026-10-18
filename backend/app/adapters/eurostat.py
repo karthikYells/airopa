@@ -86,6 +86,21 @@ def services_imports(items: list[str], partners: list[str], years: list[str],
     return parse_jsonstat(data) if data else []
 
 
+# Below this, a six-digit market is too narrow to speak for demand; use the heading.
+NARROW_MARKET_EUR = 50_000_000
+
+
+def demand_view(hs: str, reporters: tuple[str, ...] = ("EU",)) -> dict | None:
+    """market_view for the product's own code, stepping up to its four-digit
+    heading when the six-digit market is under EUR 50m. `basis` says which."""
+    v = market_view(hs, reporters=reporters)
+    if len(hs) > 4 and (v is None or v["extra_eu"] < NARROW_MARKET_EUR):
+        h = market_view(hs[:4], reporters=reporters)
+        if h is not None:
+            return {**h, "basis": "heading", "product_hs": hs, "product_view": v}
+    return {**v, "basis": "product"} if v else None
+
+
 def market_view(hs: str, years: tuple[str, str] = ("2023", "2025"),
                 reporters: tuple[str, ...] = ("EU",)) -> dict | None:
     """Europe's demand for one HS code and India's position in it: imports from

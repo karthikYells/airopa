@@ -160,6 +160,61 @@ class LLM:
         except Exception:
             return {}
 
+    # --- small model: what the company sells, as HS codes / service types ---
+    def map_offering(self, company: str, pages: list[dict]) -> dict:
+        """Extraction only: products and services named on the company's own
+        pages, each with a phrase copied exactly from the page as evidence, a
+        6-digit HS code for goods and a service type for services. The caller
+        drops every item whose evidence is not on the page."""
+        if not self.enabled or not pages:
+            return {}
+        system = (
+            "You read a company's own web pages and list what it sells. Use only what the "
+            "pages say. For each physical product line it makes or exports (up to 6), give: "
+            "name; evidence, a short phrase copied EXACTLY from the page that names the "
+            "product; url, the page it is on; hs, the most likely 6-digit Harmonized System "
+            "code (HS 2022) for that product as exported; hs_label, the official short "
+            "description of that code; confidence 0-1. For each service line it sells (up to "
+            "4), give name, evidence, url and code: SI for software, IT, cloud, data or "
+            "telecom services; SJ3 for engineering, design, testing or technical services; SJ "
+            "for consulting, business process outsourcing and other business services. Do not "
+            "list what its customers make, and do not list products it only buys. "
+            'Reply with JSON only: {"products": [{"name": "", "evidence": "", "url": "", '
+            '"hs": "", "hs_label": "", "confidence": 0.0}], "services": [{"name": "", '
+            '"evidence": "", "url": "", "code": ""}]}'
+        )
+        body = "\n\n".join(f"PAGE {p['url']}\n{p['text'][:7000]}" for p in pages[:4])
+        try:
+            raw = self._complete(self._settings.llm_model_small, system,
+                                 f"Company: {company}\n\n{body}", 2500)
+            data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def choose_hs(self, items: list[dict]) -> dict:
+        """Constrained choice: for each product, pick one six-digit code from the
+        official options under its heading. Returns {product name: code}; the
+        caller accepts a code only if it was one of that product's options."""
+        if not self.enabled or not items:
+            return {}
+        system = (
+            "For each product, choose the single best six-digit HS 2022 code from its list of "
+            "official options, based on the product name and the evidence from the company's "
+            "page. Choose only from the options given. If none fits, use null. "
+            'Reply with JSON only: {"<product name>": "<code or null>", ...}'
+        )
+        body = "\n\n".join(
+            f"PRODUCT: {it['name']}\nEVIDENCE: {it['evidence']}\nOPTIONS:\n"
+            + "\n".join(f"{c} {t[:140]}" for c, t in it["options"][:60])
+            for it in items)
+        try:
+            raw = self._complete(self._settings.llm_model_small, system, body, 800)
+            data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
     # --- small model: sector classification for the reference lookup ---
     def classify_sector(self, text: str, sector_keys: list[str], name: str | None = None,
                         industry: str | None = None) -> str:

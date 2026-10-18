@@ -15,6 +15,7 @@ count actual titles.
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlparse
 
@@ -59,6 +60,11 @@ _NEWS_HINTS = ["newsroom", "news", "press", "media", "nieuws", "pers", "presse",
 
 # Tried only when the menu shows no newsroom; stops at the first "429 Too Many Requests".
 _NEWS_PATHS = ["/news", "/newsroom", "/press", "/en/news", "/nieuws", "/presse"]
+
+# What they sell: product and service pages (Europe Market Assessment only).
+_PRODUCT_HINTS = ["products", "product", "solutions", "services", "portfolio", "offerings",
+                  "capabilities", "what we do", "what-we-do", "industries", "range", "catalogue",
+                  "catalog"]
 
 # Annual / integrated reports, usually PDFs on the site or a CDN.
 _REPORT_HINTS = ["annual report", "annual-report", "annualreport", "integrated report",
@@ -139,6 +145,7 @@ class ScrapeResult:
     india_checks: int = 0                                  # India-targeted checks run
     page_title_name: str | None = None                     # company name guess
     news_pages: list[dict] = field(default_factory=list)   # [{url, text}] own newsroom
+    product_pages: list[dict] = field(default_factory=list)  # [{url, text}] what they sell
     annual_report_urls: list[str] = field(default_factory=list)  # PDF links, own site
     error: str | None = None                               # why a crawl stopped early
 
@@ -150,11 +157,15 @@ def _normalise_url(raw: str) -> str:
     return raw
 
 
+_MAX_HTML = 1_500_000   # characters; enough for any real page's text
+
+
 def _text(html: str) -> str:
+    """Visible text of a page. Scripts and styles are stripped in one pass:
+    removing them tag by tag took minutes on pages with thousands of tags."""
     try:
-        tree = HTMLParser(html)
-        for tag in tree.css("script, style, noscript"):
-            tag.decompose()
+        tree = HTMLParser(html[:_MAX_HTML])
+        tree.strip_tags(["script", "style", "noscript"])
         return tree.body.text(separator="\n") if tree.body else tree.text()
     except Exception:
         return ""
@@ -285,10 +296,40 @@ def _extract_titles(text: str) -> list[tuple[str, bool]]:
     return list(out.values())[:120]
 
 
-def scrape(input_url: str) -> ScrapeResult:
+def scrape_with_deadline(input_url: str, products: bool = False, deadline_s: float = 90.0) -> ScrapeResult:
+    """scrape() with a hard stop: after `deadline_s` the pages read so far are
+    used and the rest is abandoned. A slow site that drips its pages can no
+    longer hold a visitor for minutes."""
+    import copy
+    import threading
+
+    res = ScrapeResult(input_url=input_url, resolved_host=urlparse(_normalise_url(input_url)).netloc)
+    t = threading.Thread(target=scrape, args=(input_url, products, deadline_s * 0.8, res), daemon=True)
+    t.start()
+    t.join(deadline_s)
+    if t.is_alive():
+        snap = copy.copy(res)
+        for f in ("pages_fetched", "careers_urls", "job_titles", "india_pages", "news_pages",
+                  "product_pages", "annual_report_urls", "india_careers_titles"):
+            setattr(snap, f, list(getattr(res, f)))
+        snap.error = snap.error or f"stopped after {deadline_s:.0f}s; used the pages read so far"
+        return snap
+    return res
+
+
+def scrape(input_url: str, products: bool = False, budget_s: float = 75.0,
+           res: ScrapeResult | None = None) -> ScrapeResult:
+    """`products=True` also reads up to three product or service pages (used by
+    the Europe Market Assessment to map what the company sells). After
+    `budget_s` seconds no further optional pages are fetched, so one slow site
+    cannot hold a visitor for minutes."""
+    started = time.monotonic()
+
+    def late() -> bool:
+        return time.monotonic() - started > budget_s
     url = _normalise_url(input_url)
     host = urlparse(url).netloc
-    res = ScrapeResult(input_url=input_url, resolved_host=host)
+    res = res if res is not None else ScrapeResult(input_url=input_url, resolved_host=host)
 
     headers = {"User-Agent": _UA, "Accept-Language": "en,de,nl,fr"}
     try:
@@ -302,6 +343,10 @@ def scrape(input_url: str) -> ScrapeResult:
             if home.status_code >= 500:
                 home = c.get(url)
             if home.status_code >= 400:
+                # A 403 is usually bot protection the site owner chose; we respect it
+                # and say so, rather than trying to get round it.
+                res.error = (f"blocked: the site refuses automated readers (HTTP {home.status_code})"
+                             if home.status_code in (401, 403, 429) else f"HTTP {home.status_code}")
                 return res
             res.reachable = True
             res.pages_fetched.append(str(home.url))
@@ -321,6 +366,8 @@ def scrape(input_url: str) -> ScrapeResult:
             info_urls = _find_links(home_html, str(home.url), _INFO_HINTS, 6)
 
             for cu in res.careers_urls:
+                if late():
+                    break
                 try:
                     cp = c.get(cu)
                     if cp.status_code < 400:
@@ -340,6 +387,8 @@ def scrape(input_url: str) -> ScrapeResult:
 
             report_links = _find_report_links(home_html, str(home.url))
             for iu in info_urls:
+                if late():
+                    break
                 try:
                     ip = c.get(iu)
                     if ip.status_code < 400:
@@ -357,6 +406,27 @@ def scrape(input_url: str) -> ScrapeResult:
                     continue
             res.annual_report_urls = list(dict.fromkeys(report_links))[:3]
 
+            if products:
+                seen_p = {str(home.url).rstrip("/")}
+                for pu in _find_links(home_html, str(home.url), _PRODUCT_HINTS, 8):
+                    if len(res.product_pages) >= 3 or late():
+                        break
+                    try:
+                        pp = c.get(pu)
+                        final = str(pp.url).rstrip("/")
+                        if pp.status_code == 429:
+                            break
+                        if pp.status_code >= 400 or final in seen_p:
+                            continue
+                        seen_p.add(final)
+                        ptext = _text(pp.text)
+                        if len(ptext) < 300:
+                            continue
+                        res.pages_fetched.append(str(pp.url))
+                        res.product_pages.append({"url": str(pp.url), "text": ptext[:12000]})
+                    except Exception:
+                        continue
+
             # Their own newsroom: dated press releases for the timing panel (PRESS).
             # Menus are often JavaScript, so fall back to the usual addresses.
             news_urls = [u for u in _find_links(home_html, str(home.url), _NEWS_HINTS, 6)
@@ -365,7 +435,7 @@ def scrape(input_url: str) -> ScrapeResult:
             news_urls += [root + p for p in _NEWS_PATHS]
             seen_final: set[str] = set()
             for nu in list(dict.fromkeys(news_urls)):
-                if len(res.news_pages) >= 2:
+                if len(res.news_pages) >= 2 or late():
                     break
                 try:
                     np_ = c.get(nu)

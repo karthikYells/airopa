@@ -94,7 +94,8 @@ def _peer(a) -> dict | None:
     sector = ref.SECTORS.get(a.offering.sector) if a.offering and a.offering.sector else None
     definition = pc["definition"].replace("Indian industry companies", f"Indian {(sector or 'industry').lower()} companies")
     return {"with_centre": pc["with_presence"], "total": pc["known"],
-            "claim": "of the companies we identify as your closest Indian peers already have teams in Europe.",
+            "claim": ("of the companies we identify as your closest Indian peers already "
+                      + ("has a team" if pc["with_presence"] == 1 else "have teams") + " in Europe."),
             "aggregate_note": (f"Together they have at least {pc['europe_people']:,} people in Europe on public "
                                "professional profiles." if pc.get("europe_people") else None),
             "cohort_definition": definition}
@@ -114,7 +115,8 @@ def _summary(a, peer: dict | None = None) -> dict | None:
     body = []
     pc = a.peer_cohort
     if peer:
-        body.append(f"{peer['with_centre']} of your {peer['total']} closest Indian peers already have teams in Europe.")
+        verb = "has a team" if peer["with_centre"] == 1 else "have teams"
+        body.append(f"{peer['with_centre']} of your {peer['total']} closest Indian peers already {verb} in Europe.")
         if peer["with_centre"] / peer["total"] >= 0.5 and (a.presence and a.presence.verdict != "ESTABLISHED"):
             headline = "Most of your closest Indian peers are already in Europe. You are not, yet."
     elif pc and pc.get("publishable") and pc.get("known") and not pc.get("with_presence"):

@@ -179,10 +179,15 @@ class LLM:
             "telecom services; SJ3 for engineering, design, testing or technical services; SJ "
             "for consulting, business process outsourcing and other business services. Do not "
             "list what its customers make, and do not list products it only buys. "
+            "Also give: segment, a short phrase for what it sells (e.g. 'seed traceability "
+            "software'); and buyer_industries, up to 3 codes of the industries that buy from it, "
+            "chosen ONLY from the INDUSTRY CODES list below (most specific code that fits). "
             'Reply with JSON only: {"products": [{"name": "", "evidence": "", "url": "", '
             '"hs": "", "hs_label": "", "confidence": 0.0}], "services": [{"name": "", '
-            '"evidence": "", "url": "", "code": ""}]}'
+            '"evidence": "", "url": "", "code": ""}], "segment": "", "buyer_industries": [""]}'
         )
+        from app.reference.nace import codes as nace_codes
+        system += "\n\nINDUSTRY CODES:\n" + "\n".join(f"{c} {t}" for c, t in nace_codes().items())
         body = "\n\n".join(f"PAGE {p['url']}\n{p['text'][:7000]}" for p in pages[:4])
         try:
             raw = self._complete(self._settings.llm_model_small, system,

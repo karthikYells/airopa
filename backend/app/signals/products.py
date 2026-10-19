@@ -30,6 +30,8 @@ class Offering:
     services: list[dict] = field(default_factory=list)   # verified, with service code
     sector: str | None = None               # v1 sector key, or None if outside v1
     dropped: int = 0                        # items whose evidence was not on the page
+    segment: str | None = None              # what they sell, in a phrase (model, shown as such)
+    buyers: list[str] = field(default_factory=list)   # NACE codes of the industries that buy from them
 
 
 def verify_offering(raw: dict, pages: list[dict]) -> Offering | None:
@@ -79,8 +81,14 @@ def verify_offering(raw: dict, pages: list[dict]) -> Offering | None:
     if not products and not services:
         return None
     kind = "both" if products and services else "goods" if products else "services"
+    from app.reference.nace import codes as nace_codes
+    valid = nace_codes()
+    buyers = [c for c in (raw.get("buyer_industries") or []) if isinstance(c, str) and c in valid][:3]
+    seg = raw.get("segment")
     return Offering(kind=kind, products=products, services=services,
-                    sector=_sector(products, services), dropped=dropped)
+                    sector=_sector(products, services), dropped=dropped,
+                    segment=str(seg)[:80] if isinstance(seg, str) and seg.strip() else None,
+                    buyers=buyers)
 
 
 def _sector(products: list[dict], services: list[dict]) -> str | None:

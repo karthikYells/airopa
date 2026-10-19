@@ -131,12 +131,10 @@ def _summary(a, peer: dict | None = None) -> dict | None:
             body.append(f"India's sales here are growing faster than the market, about {pct_range(gi)} a year.")
         if best.get("tariff") and best["tariff"]["rate"] > 0:
             body.append(f"You pay Europe's standard {best['tariff']['rate']:g}% tariff until the EU–India agreement is in force.")
-    elif a.offering and a.offering.kind == "services":
-        main = next((r for r in a.services if r["code"] == max(
-            [s["code"] for s in a.offering.services], key=[s["code"] for s in a.offering.services].count)), None)
-        if main:
-            body.append(f"The EU buys {eur_range(main['ext_2024'])} a year of these services from outside the EU, and "
-                        f"India's sales to the EU are growing about {pct_range(main['in_cagr'])} a year.")
+    elif a.offering and a.offering.kind == "services" and a.buyer_view:
+        bv = a.buyer_view
+        body.append(f"You sell {a.offering.segment or 'your services'} to an industry that produces "
+                    f"{eur_range(bv['gva'])} of value a year in Europe.")
     cert = next((d for d in a.ready.dimensions if d.name == "Certification and compliance"), None)
     if cert and cert.points < 15:
         body.append("The certifications European buyers check first are not visible on your website.")
@@ -183,6 +181,13 @@ def _evidence(a) -> list[dict]:
         t.append("Steel imports above Europe's quota pay **50% duty since 1 July 2026**.")
     if groups & {"tex_leather", "tex_footwear"}:
         t.append("The EU **deforestation rules apply to cattle leather from 30 December 2026**.")
+    buyers = set(a.offering.buyers) if a.offering else set()
+    if buyers & {"A01", "A02", "A03", "C10-C12", "C16"}:
+        t.append("In your buyers' industry, the EU **deforestation rules apply from 30 December 2026**: cattle, cocoa, "
+                 "coffee, palm oil, rubber, soy and wood must be traced to the plot of land they came from, "
+                 "so traceability is becoming a requirement, not an option.")
+    if buyers & {"K64", "K65", "K66"}:
+        t.append("Your European financial clients must hold IT suppliers to **DORA**, in force since 17 January 2025.")
     if a.financials and isinstance(a.financials.get("op_margin"), (int, float)) and isinstance(a.financials.get("op_margin_prev"), (int, float)) \
             and a.financials["op_margin"] < a.financials["op_margin_prev"]:
         t.append(f"Your operating margin fell in FY{a.financials['year']}: new markets matter more.")

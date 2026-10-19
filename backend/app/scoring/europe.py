@@ -80,7 +80,10 @@ def _ratio(dims) -> float:
 
 
 def _result(key, label, dims) -> ScoreResult:
-    pts = round(sum(d.points for d in dims), 1)
+    # Scored out of 100 even when a dimension does not apply (services have no
+    # China dimension): points are scaled to the dimensions that do apply.
+    mx = sum(d.max_points for d in dims)
+    pts = round(sum(d.points for d in dims) * (100 / mx if mx else 1), 1)
     resolved = sum(1 for d in dims if d.points > 0)
     return ScoreResult(key=key, label=label, points=pts, band=band_for(pts),
                        coverage=resolved / len(dims) if dims else 0.0,
@@ -187,35 +190,51 @@ def _route(a) -> DimensionScore:
 
 
 def _market_services(a) -> ScoreResult:
-    codes = [s["code"] for s in a.offering.services] if a.offering else []
-    main = max(set(codes), key=codes.count) if codes else None   # their main service type
-    best = next((r for r in a.services if r["code"] == main), a.services[0] if a.services else None)
+    """Services: demand is the EU industry that buys from them (Eurostat value
+    added), not the whole services category. It stands in for their segment's
+    market, so it is capped below the top band and says so."""
+    off = a.offering
+    seg = off.segment if off and off.segment else "what you sell"
+    bv = a.buyer_view
     dims = []
-    if best:
-        g = best["ext_cagr"]
-        dims.append(DimensionScore("Addressable demand", 22 if best["ext_2024"] >= 1e11 and g >= 0.05 else 18, 25,
-            f"The EU buys {eur_range(best['ext_2024'])} a year of {best['label'][0].lower() + best['label'][1:]} from outside the EU, "
-            f"growing about {pct_range(g)} a year."))
-        n = len(codes)
-        dims.append(DimensionScore("Product and segment fit", 17 if n >= 3 else 14 if n == 2 else 11, 20,
-            f"Your site shows {n} service line{'s' if n != 1 else ''} that European buyers import from India."))
-        gi, gm = best["in_cagr"], best["ext_cagr"]
-        gaining = gi > gm + 0.01
-        dims.append(DimensionScore("Competitive position", 13 if gaining else 9, 15,
-            f"India's sales of these services to the EU are growing about {pct_range(gi)} a year against "
-            f"{pct_range(gm)} for the market; India holds {pct_range(best['in_share'], 1)} of EU imports from outside the EU."))
+    if bv:
+        size, g = bv["gva"], bv.get("growth") or 0.0
+        pts = 20 if size >= 5e11 and g >= 0.04 else 17 if size >= 2e11 else 13 if size >= 5e10 else 9
+        dims.append(DimensionScore("Addressable demand", pts, 25,
+            f"Your buyers are in {_join([l.split(',')[0].lower() for l in bv['labels']])}: in Europe these industries "
+            f"produce {eur_range(size)} of value a year ({bv['year']}), "
+            f"{'growing' if g >= 0 else 'shrinking'} about {pct_range(abs(g))} a year. That is the industry you sell to; "
+            f"the market for {seg} within it is a niche, and sizing it is part of the business case."))
     else:
-        for n_, mx in (("Addressable demand", 25), ("Product and segment fit", 20), ("Competitive position", 15)):
-            dims.append(DimensionScore(n_, 0, mx, "Not resolved."))
+        dims.append(DimensionScore("Addressable demand", 0, 25,
+            "Not resolved: we could not tell which European industries buy what you sell."))
+    vertical = bool(off and off.buyers)
+    dims.append(DimensionScore("Product and segment fit", 14 if vertical else 10, 20,
+        (f"You specialise in {seg} for one industry, which European buyers prefer to generalists. "
+         if vertical else f"You offer {seg} across industries. ")
+        + "How well it fits European buyers' workflows and rules is tested in the business case."))
+    code_rows = {r["code"]: r for r in a.services}
+    codes = [s_["code"] for s_ in off.services] if off else []
+    main = code_rows.get(max(set(codes), key=codes.count)) if codes else None
+    if main:
+        gi, gm = main["in_cagr"], main["ext_cagr"]
+        gaining = gi > gm + 0.01
+        dims.append(DimensionScore("Competitive position", 12 if gaining else 9, 15,
+            f"Across all {main['label'][0].lower() + main['label'][1:]}, India's sales to the EU are growing about "
+            f"{pct_range(gi)} a year against {pct_range(gm)} for the market, so Indian suppliers are "
+            f"{'gaining' if gaining else 'holding'} ground. Who competes in your own segment is part of the business case."))
+    else:
+        dims.append(DimensionScore("Competitive position", 0, 15, "Not resolved."))
     dims.append(DimensionScore("Tariffs and trade terms", 11, 15,
         "Services carry no tariffs. Personal data needs EU standard contractual clauses (there is no EU adequacy "
         "decision for India). India's social security agreements with 12 EU countries, and the UK's since "
         "15 July 2026, spare your staff double contributions."))
     dims.append(_route(a))
-    dims.append(DimensionScore("Europe's shift away from China", 5, 10,
-        "European clients are spreading IT and engineering work across more locations; India is the largest "
-        "alternative to doing it in-house."))
     return _result("europe_market", "Europe Market Opportunity", dims)
+
+
+def _join(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
 
 
 # --- Score B: Europe Readiness ----------------------------------------------------------

@@ -91,3 +91,34 @@ def test_unknown_offering_shows_no_scores():
     p = europe_snapshot.build(a)
     assert p["mode"] == "NO_OFFERING" and "market" not in p and "readiness" not in p and "summary" not in p
     assert "Tell us your main products" in p["message"] and [e["title"] for e in p["own_evidence"]] == ["Your Europe presence today"]
+
+
+def test_services_demand_is_the_buyer_industry_not_all_it(monkeypatch):
+    from app.signals.products import Offering as Off
+    a = _assessment()
+    a.offering = Off(kind="services", services=[{"code": "SI", "name": "Traceability"}], sector="it_services",
+                     segment="seed traceability software", buyers=["A01"])
+    a.buyer_view = {"codes": ["A01"], "labels": ["Crop and animal production, hunting and related service activities"],
+                    "gva": 2.42e11, "year": 2023, "growth": 0.097}
+    m = scoring.market_opportunity(a)
+    names = [d.name for d in m.dimensions]
+    assert "Europe's shift away from China" not in names                  # not applicable to services
+    demand = next(d for d in m.dimensions if d.name == "Addressable demand")
+    assert "crop and animal production" in demand.basis and "seed traceability software" in demand.basis
+    assert "125bn" not in demand.basis and demand.points <= 20             # capped: a stand-in for their niche
+    a.market, a.ready = m, scoring.readiness(a)
+    p = europe_snapshot.build(a)
+    timing = next(e for e in p["own_evidence"] if e["title"].startswith("Your timing"))
+    assert any("deforestation" in b for b in timing["bullets"])
+
+
+def test_industry_view_uses_latest_common_year(monkeypatch):
+    from app.adapters import eurostat
+    data = {"id": ["nace_r2", "time"], "size": [1, 3],
+            "dimension": {"nace_r2": {"category": {"index": {"A01": 0}, "label": {"A01": "Crop and animal production"}}},
+                          "time": {"category": {"index": {"2021": 0, "2022": 1, "2023": 2}}}},
+            "value": {"0": 201304.9, "1": 235380.1, "2": 242292.3}}
+    monkeypatch.setattr(eurostat, "_cached", lambda url, params: data)
+    v = eurostat.industry_view(["A01", "C20"])                            # C20 confidential: no values
+    assert v["codes"] == ["A01"] and v["year"] == 2023 and round(v["gva"] / 1e9) == 242
+    assert round(v["growth"], 3) == round((242292.3 / 201304.9) ** 0.5 - 1, 3)

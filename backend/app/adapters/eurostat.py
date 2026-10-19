@@ -127,3 +127,34 @@ def market_view(hs: str, years: tuple[str, str] = ("2023", "2025"),
         "china_share": (cn_l / ext_l) if cn_l is not None else None,
         "source_url": f"{_COMEXT}?product={hs}&reporter={rep}&flow=1",
     }
+
+
+_GVA = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/nama_10_a64"
+
+
+def industry_view(codes: list[str]) -> dict | None:
+    """EU-27 gross value added (EUR) of the buyer industries (NACE A*64), the
+    latest year Eurostat publishes for all of them and its growth per year over
+    the two years before. A measure of the industry they sell to, not of their
+    own segment. None if Eurostat has nothing for the codes."""
+    if not codes:
+        return None
+    params = [("format", "JSON"), ("lang", "EN"), ("geo", "EU27_2020"), ("na_item", "B1G"),
+              ("unit", "CP_MEUR"), ("sinceTimePeriod", "2018")] + [("nace_r2", c) for c in codes]
+    data = _cached(_GVA, params)
+    if not data:
+        return None
+    by = {}
+    for c in parse_jsonstat(data):
+        if c["value"] is not None:
+            by.setdefault(c["nace_r2"], {})[int(c["time"])] = c["value"] * 1e6
+    have = [c for c in codes if c in by]
+    if not have:
+        return None
+    year = min(max(by[c]) for c in have)          # latest year published for every code
+    now = sum(by[c].get(year, 0) for c in have)
+    then = sum(by[c].get(year - 2, 0) for c in have)
+    labels = data["dimension"]["nace_r2"]["category"].get("label", {})
+    return {"codes": have, "labels": [labels.get(c, c) for c in have], "gva": now, "year": year,
+            "growth": (now / then) ** 0.5 - 1 if then else None,
+            "source_url": f"{_GVA}?geo=EU27_2020&na_item=B1G&unit=CP_MEUR"}

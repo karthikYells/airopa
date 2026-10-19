@@ -46,6 +46,7 @@ class EuropeAssessment:
     countries: list = field(default_factory=list)    # top 3
     uk_note: str | None = None
     peer_cohort: dict | None = None
+    buyer_view: dict | None = None
     market: ScoreResult | None = None
     ready: ScoreResult | None = None
     time_range: dict | None = None
@@ -134,6 +135,7 @@ def run(input_url: str, settings: Settings, llm=None) -> EuropeAssessment:
         best = max((d for d in a.demand if d["view"]), key=lambda d: d["view"]["extra_eu"], default=None)
         f_tar = pool.submit(wits.mfn_tariff, best["product"]["hs"]) if best and len(best["product"]["hs"]) == 6 else None
         is_services = a.offering is not None and a.offering.kind == "services"
+        f_buy = pool.submit(eurostat.industry_view, a.offering.buyers) if a.offering and a.offering.buyers else None
         if is_services:
             codes = sorted({s["code"] for s in a.offering.services})
             f_cty = pool.submit(_country_rows_services, codes)
@@ -147,6 +149,7 @@ def run(input_url: str, settings: Settings, llm=None) -> EuropeAssessment:
         rows = f_cty.result() if f_cty else []
         f_rep.result()
         a.peer_cohort = f_peer.result() if f_peer else None
+        a.buyer_view = f_buy.result() if f_buy else None
     # Certifications named in their own annual report count as well.
     a.certs = scoring.find_certs(a.site_text + "\n" + a.report_cert_text)
     a.services = ref.services()

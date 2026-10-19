@@ -96,8 +96,10 @@ def _peer(a) -> dict | None:
     return {"with_centre": pc["with_presence"], "total": pc["known"],
             "claim": ("of the companies we identify as your closest Indian peers already "
                       + ("has a team" if pc["with_presence"] == 1 else "have teams") + " in Europe."),
-            "aggregate_note": (f"Together they have at least {pc['europe_people']:,} people in Europe on public "
-                               "professional profiles." if pc.get("europe_people") else None),
+            "aggregate_note": ((f"Together they have at least {pc['europe_people']:,} people in Europe on public "
+                                "professional profiles" + (f", {pc['recent_people']:,} of whom started their roles there "
+                                "in the last 12 months." if pc.get("recent_people") else "."))
+                               if pc.get("europe_people") else None),
             "cohort_definition": definition}
 
 
@@ -116,7 +118,9 @@ def _summary(a, peer: dict | None = None) -> dict | None:
     pc = a.peer_cohort
     if peer:
         verb = "has a team" if peer["with_centre"] == 1 else "have teams"
-        body.append(f"{peer['with_centre']} of your {peer['total']} closest Indian peers already {verb} in Europe.")
+        body.append(f"{peer['with_centre']} of your {peer['total']} closest Indian peers already {verb} in Europe"
+                    + (f", and in the last 12 months alone they put {pc['recent_people']:,} more people into "
+                       "European roles: they are building their lead while you decide." if pc and pc.get("recent_people") else "."))
         if peer["with_centre"] / peer["total"] >= 0.5 and (a.presence and a.presence.verdict != "ESTABLISHED"):
             headline = "Most of your closest Indian peers are already in Europe. You are not, yet."
     elif pc and pc.get("publishable") and pc.get("known") and not pc.get("with_presence"):

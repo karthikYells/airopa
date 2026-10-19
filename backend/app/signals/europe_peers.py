@@ -54,9 +54,20 @@ def _headers(settings):
     return {"X-Api-Key": settings.apollo_api_key, "Cache-Control": "no-cache", "Content-Type": "application/json"}
 
 
+def _recent_europe(c, domain: str) -> int:
+    """Europe-based people who started their current role in the last 12
+    months (free search): how fast a peer is building in Europe."""
+    from app.adapters.apollo import parse_people
+    body = {"q_organization_domains_list": [domain], "person_locations": _EUROPE,
+            "person_days_in_current_title_range": {"max": 365}, "per_page": 1, "page": 1}
+    r = c.post(f"{_API}/mixed_people/api_search", json=body)
+    r.raise_for_status()
+    return parse_people(r.json())[0]
+
+
 def _check(c, peer: dict, settings: Settings) -> dict:
     doc = kv.get("eu_peers", peer["domain"])
-    if _fresh(doc):
+    if _fresh(doc) and "recent" in doc:
         return doc
     try:
         europe, _ = _count(c, peer["domain"], _EUROPE)
@@ -64,7 +75,12 @@ def _check(c, peer: dict, settings: Settings) -> dict:
     except Exception:
         return {**peer, "status": "unknown", "europe_people": 0}
     status = "yes" if europe >= 10 else "no" if europe < 3 and total >= settings.apollo_min_profiles else "unknown"
-    doc = {**peer, "status": status, "europe_people": europe, "total": total, "fetched_at": time.time()}
+    try:
+        recent = _recent_europe(c, peer["domain"]) if status == "yes" else 0
+    except Exception:
+        recent = 0
+    doc = {**peer, "status": status, "europe_people": europe, "recent": recent, "total": total,
+           "fetched_at": time.time()}
     kv.put("eu_peers", peer["domain"], doc)
     return doc
 
@@ -101,5 +117,6 @@ def cohort(domain: str, org: dict | None, sector_label: str | None, settings: Se
         band = f", EUR {fmt(lo)} to {fmt(hi)} revenue"
     return {"peers": checked, "known": len(known), "with_presence": len(yes),
             "europe_people": sum(p["europe_people"] for p in yes),
+            "recent_people": sum(p.get("recent", 0) for p in yes),
             "definition": f"Indian {(sector_label or 'industry').lower()} companies{band}",
             "publishable": len(known) >= _MIN_KNOWN}

@@ -19,7 +19,7 @@ from app.config import Settings
 from app.data.records import ScoreResult
 from app.reference import europe_reference as ref
 from app.scoring import europe as scoring
-from app.signals import europe_presence
+from app.signals import europe_peers, europe_presence
 from app.signals.products import Offering, map_offering
 
 EU9 = ["DE", "IT", "FR", "NL", "ES", "BE", "PL", "SE", "CZ"]
@@ -45,6 +45,7 @@ class EuropeAssessment:
     report_cert_text: str = ""
     countries: list = field(default_factory=list)    # top 3
     uk_note: str | None = None
+    peer_cohort: dict | None = None
     market: ScoreResult | None = None
     ready: ScoreResult | None = None
     time_range: dict | None = None
@@ -122,6 +123,7 @@ def run(input_url: str, settings: Settings, llm=None) -> EuropeAssessment:
         a.name = (a.org or {}).get("name") or sr.page_title_name or domain.split(".")[0].title()
         f_off = pool.submit(map_offering, a.name, sr, llm) if sr.reachable else None
         f_rep = pool.submit(_annual_report, a, sr, llm)
+        f_peer = pool.submit(europe_peers.cohort, domain, a.org, None, settings) if a.org else None
         a.offering = f_off.result() if f_off else None
         a.timings["offering"] = round(time.monotonic() - t0, 1)
 
@@ -144,6 +146,7 @@ def run(input_url: str, settings: Settings, llm=None) -> EuropeAssessment:
             best["tariff"] = f_tar.result()
         rows = f_cty.result() if f_cty else []
         f_rep.result()
+        a.peer_cohort = f_peer.result() if f_peer else None
     # Certifications named in their own annual report count as well.
     a.certs = scoring.find_certs(a.site_text + "\n" + a.report_cert_text)
     a.services = ref.services()

@@ -87,7 +87,20 @@ def _company(a) -> dict:
     }
 
 
-def _summary(a) -> dict | None:
+def _peer(a) -> dict | None:
+    pc = a.peer_cohort
+    if not (pc and pc.get("publishable") and pc.get("with_presence")):
+        return None
+    sector = ref.SECTORS.get(a.offering.sector) if a.offering and a.offering.sector else None
+    definition = pc["definition"].replace("Indian industry companies", f"Indian {(sector or 'industry').lower()} companies")
+    return {"with_centre": pc["with_presence"], "total": pc["known"],
+            "claim": "of the companies we identify as your closest Indian peers already have teams in Europe.",
+            "aggregate_note": (f"Together they have at least {pc['europe_people']:,} people in Europe on public "
+                               "professional profiles." if pc.get("europe_people") else None),
+            "cohort_definition": definition}
+
+
+def _summary(a, peer: dict | None = None) -> dict | None:
     mk, rd = a.market.points, a.ready.points
     best = max((d for d in a.demand if d["view"]), key=lambda d: d["view"]["extra_eu"], default=None)
     if mk >= 65 and rd < 55:
@@ -99,6 +112,13 @@ def _summary(a) -> dict | None:
     else:
         headline = "Europe is a hard market for what you sell today."
     body = []
+    pc = a.peer_cohort
+    if peer:
+        body.append(f"{peer['with_centre']} of your {peer['total']} closest Indian peers already have teams in Europe.")
+        if peer["with_centre"] / peer["total"] >= 0.5 and (a.presence and a.presence.verdict != "ESTABLISHED"):
+            headline = "Most of your closest Indian peers are already in Europe. You are not, yet."
+    elif pc and pc.get("publishable") and pc.get("known") and not pc.get("with_presence"):
+        body.append(f"None of your {pc['known']} closest Indian peers has a team in Europe yet: the first to move sets the terms.")
     if best:
         v, p = best["view"], best["product"]
         body.append(f"Europe imports {eur_range(v['extra_eu'])} a year of {p['name'].lower()} from outside the EU"
@@ -208,7 +228,8 @@ def build(a) -> dict:
     else:
         base["mode"] = "STANDARD"
     base["europe_status"] = a.presence.reason if a.presence else None
-    base["summary"] = _summary(a)
+    base["peer_headline"] = _peer(a)
+    base["summary"] = _summary(a, base["peer_headline"])
     base["market"] = _card(a.market, "Is Europe a market for what you sell?",
                            "Indicative. Based on Eurostat trade data for your products and World Bank tariff data; "
                            "the full business case tests it against your own buyers.", "insight")

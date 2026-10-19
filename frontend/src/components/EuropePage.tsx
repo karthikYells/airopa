@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { scoreEurope } from "../api";
 import type { HubCard, Snapshot } from "../types";
 import {
-  CompanyBar, EvidenceCard, Notice, ReasonedCard, ReportForm, SectionLabel, SummaryPanel, Withheld,
+  CompanyBar, EvidenceCard, Notice, PeerCard, ReasonedCard, ReportForm, SectionLabel, SummaryPanel, Withheld,
 } from "./PublicPage";
 import { DomainInput, Scanning, SiteFooter, SiteHeader, companyFromUrl, setCompanyInUrl } from "./ui";
 
@@ -69,6 +69,7 @@ function EuropeBody({ data }: { data: Snapshot }) {
   );
   return (
     <>
+      {data.peer_headline && <PeerCard peer={data.peer_headline} />}
       {data.company && <CompanyBar data={data} />}
       {data.summary && <SummaryPanel s={data.summary} />}
       {data.message && (

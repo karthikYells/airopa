@@ -201,7 +201,7 @@ function HubScoreCard({ s }: { s: HubCard }) {
   );
 }
 
-function PeerCard({ peer }: { peer: PeerHeadline }) {
+export function PeerCard({ peer }: { peer: PeerHeadline }) {
   return (
     <section className="flex flex-col gap-4 rounded-panel border border-line border-t-4 border-t-orange bg-white px-6 py-5 sm:flex-row sm:items-center sm:gap-8">
       <div className="whitespace-nowrap font-display text-5xl font-extrabold text-orange sm:text-6xl">

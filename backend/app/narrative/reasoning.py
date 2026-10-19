@@ -30,6 +30,10 @@ def eur_range(v: float) -> str:
         lo = math.floor(bn / 5) * 5
         return f"EUR {lo} to {lo + 5}bn"
     m = v / 1e6
+    if m < 100:
+        step = 10 if m >= 20 else 5
+        lo = math.floor(m / step) * step
+        return f"EUR {lo} to {lo + step}m"
     lo = math.floor(m / 100) * 100
     return f"EUR {lo} to {lo + 100}m"
 

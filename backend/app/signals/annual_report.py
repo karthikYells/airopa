@@ -35,9 +35,15 @@ def _year_of(url: str) -> int:
     return max(years) if years else 0
 
 
-def fetch_report_pages(urls: list[str]) -> tuple[str, list[tuple[int, str]]] | None:
+_CERT_LINE = re.compile(r"[^\n]{0,120}(ISO\s?\d{4,5}|IATF\s?16949|OEKO[- ]?TEX|GOTS|SOC\s?2|EU[- ]GMP|"
+                        r"US ?FDA|CE[- ]mark|AS\s?9100|EcoVadis|SA\s?8000|SEDEX|amfori)[^\n]{0,120}", re.I)
+
+
+def fetch_report_pages(urls: list[str], cert_lines: list | None = None) -> tuple[str, list[tuple[int, str]]] | None:
     """Most recent report among the links -> (url, [(page_no, text)]) of the
-    pages most likely to hold the key figures. None if none could be read."""
+    pages most likely to hold the key figures. None if none could be read.
+    Pass a list as `cert_lines` to also collect the report's lines that name
+    certifications (Europe Market Assessment)."""
     from pypdf import PdfReader
 
     for url in sorted(urls, key=_year_of, reverse=True)[:2]:
@@ -58,6 +64,8 @@ def fetch_report_pages(urls: list[str]) -> tuple[str, list[tuple[int, str]]] | N
                     text = page.extract_text() or ""
                 except Exception:
                     continue
+                if cert_lines is not None and len(cert_lines) < 40:
+                    cert_lines.extend(m.group(0).strip() for m in _CERT_LINE.finditer(text))
                 hits = len(_KEYWORDS.findall(text))
                 if hits:
                     scored.append((hits + (5 if re.search(r"key figures|kerncijfers|kennzahlen|highlights", text, re.I) else 0), i, text))

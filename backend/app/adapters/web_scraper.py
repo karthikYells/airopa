@@ -66,6 +66,14 @@ _PRODUCT_HINTS = ["products", "product", "solutions", "services", "portfolio", "
                   "capabilities", "what we do", "what-we-do", "industries", "range", "catalogue",
                   "catalog"]
 
+# Quality, certification and trust pages (Europe Market Assessment only).
+_CERT_HINTS = ["quality", "certification", "certificates", "accreditation", "compliance",
+               "trust", "security", "sustainability", "esg"]
+_CERT_PATHS = ["/certifications", "/certification", "/quality", "/quality-policy",
+               "/about-us/certifications", "/about/certifications", "/trust-center", "/trust"]
+# Investor pages of listed companies, where annual reports live.
+_INVESTOR_HINTS = ["investor", "investors", "annual-report", "financial-results", "shareholders"]
+
 # Annual / integrated reports, usually PDFs on the site or a CDN.
 _REPORT_HINTS = ["annual report", "annual-report", "annualreport", "integrated report",
                  "annual review", "jaarverslag", "jaarrapport", "geschäftsbericht",
@@ -148,6 +156,7 @@ class ScrapeResult:
     product_pages: list[dict] = field(default_factory=list)  # [{url, text}] what they sell
     external_domains: list[str] = field(default_factory=list)  # other sites linked from home
     languages: list[str] = field(default_factory=list)        # site language versions (hreflang)
+    trust_text: str = ""                                       # quality / certification / trust pages
     annual_report_urls: list[str] = field(default_factory=list)  # PDF links, own site
     error: str | None = None                               # why a crawl stopped early
 
@@ -441,6 +450,47 @@ def scrape(input_url: str, products: bool = False, budget_s: float = 75.0,
                         report_links += _find_report_links(ip.text, str(ip.url))
                 except Exception:
                     continue
+            if products:
+                # Investor pages hold the annual reports of listed Indian companies.
+                for vu in _find_links(home_html, str(home.url), _INVESTOR_HINTS, 2):
+                    if late():
+                        break
+                    try:
+                        vp = c.get(vu)
+                        if vp.status_code < 400:
+                            res.pages_fetched.append(str(vp.url))
+                            report_links += _find_report_links(vp.text, str(vp.url))
+                    except Exception:
+                        continue
+                # Quality, certification and trust pages: what European buyers check.
+                trust = []
+                for tu in _find_links(home_html, str(home.url), _CERT_HINTS, 6)[:3]:
+                    if late():
+                        break
+                    try:
+                        tp = c.get(tu)
+                        if tp.status_code < 400:
+                            res.pages_fetched.append(str(tp.url))
+                            trust.append(_text(tp.text)[:8000])
+                    except Exception:
+                        continue
+                # Certification pages are often not linked from the homepage.
+                root = f"{urlparse(str(home.url)).scheme}://{urlparse(str(home.url)).netloc}"
+                for path in _CERT_PATHS:
+                    if late() or len(trust) >= 4:
+                        break
+                    try:
+                        tp = c.get(root + path)
+                        if tp.status_code == 429:
+                            break
+                        if tp.status_code < 400 and str(tp.url).rstrip("/") != str(home.url).rstrip("/"):
+                            ttext = _text(tp.text)
+                            if len(ttext) > 300 and re.search(r"ISO|certif|accredit", ttext, re.I):
+                                res.pages_fetched.append(str(tp.url))
+                                trust.append(ttext[:8000])
+                    except Exception:
+                        continue
+                res.trust_text = "\n".join(trust)
             res.annual_report_urls = list(dict.fromkeys(report_links))[:3]
 
             if products:

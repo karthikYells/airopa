@@ -223,10 +223,19 @@ def build(a) -> dict:
                                 "offer": "We build it with you against your own products and numbers. No obligation."}
         return base
     if a.offering is None:
+        # Without knowing what they sell, any market score would be invented:
+        # show what we found about their presence and ask instead.
         base["mode"] = "NO_OFFERING"
-        base["message"] = "We could not tell from your website what you sell, so we could not size Europe's market for it."
-    else:
-        base["mode"] = "STANDARD"
+        base["europe_status"] = a.presence.reason if a.presence else None
+        base["message"] = ("We could not tell from your website what you sell, so we have not scored Europe's "
+                           "market for it. Tell us your main products and we will complete the assessment.")
+        base["own_evidence"] = [e for e in _evidence(a) if e["title"] == "Your Europe presence today"]
+        base["withheld"] = WITHHELD
+        base["lead_capture"] = {"type": "complete_the_picture", "field": "work_email",
+                                "title": "Get your Europe market case in two weeks",
+                                "offer": "We build it with you against your own products and numbers. No obligation."}
+        return base
+    base["mode"] = "STANDARD"
     base["europe_status"] = a.presence.reason if a.presence else None
     base["peer_headline"] = _peer(a)
     base["summary"] = _summary(a, base["peer_headline"])

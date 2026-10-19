@@ -1,6 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 /** Navy header bar from the mockups (Sections 9.9 and 10.2). */
+// Site links: relative on accessindia.nl, absolute when the page is served
+// elsewhere (the Europe preview on the engine server sets VITE_SITE_URL).
+export const SITE: string = (import.meta as any).env?.VITE_SITE_URL ?? "";
+
 export function TopBar({ title, right }: { title: string; right: ReactNode }) {
   return (
     <header className="bg-navy px-5 py-4 text-white sm:px-9">
@@ -29,7 +33,7 @@ export function SiteHeader({ crumb, title, accent, intro }: {
     <div className="bg-navy text-band-fg">
       <div className="mx-auto max-w-[1180px] px-4 sm:px-10">
         <nav className="flex flex-wrap items-center justify-between gap-4 py-5" aria-label="Main">
-          <a className="flex items-center gap-3 no-underline" href="/" aria-label="Access India Netherlands, home">
+          <a className="flex items-center gap-3 no-underline" href={`${SITE}/`} aria-label="Access India Netherlands, home">
             <svg width="44" height="30" viewBox="0 0 44 30" aria-hidden="true">
               <path d="M17 6.5a9 9 0 1 0 0 17" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
               <path d="M37 6.5a9 9 0 1 0 0 17" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
@@ -41,7 +45,7 @@ export function SiteHeader({ crumb, title, accent, intro }: {
           </a>
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-[15px]">
             {links.map(([href, label]) => (
-              <a key={href} href={href}
+              <a key={href} href={href.startsWith("/") ? SITE + href : href}
                  className={`no-underline hover:text-band-fg ${label === "Engines" ? "text-band-fg" : "text-band-muted"}`}>
                 {label}
               </a>
@@ -50,7 +54,7 @@ export function SiteHeader({ crumb, title, accent, intro }: {
         </nav>
         <div className="max-w-[46em] pb-12 pt-7">
           <div className="font-mono text-[12.5px] uppercase tracking-[0.12em] text-orange">
-            <a href="/engines/" className="no-underline">Engines</a> / {crumb}
+            <a href={`${SITE}/engines/`} className="no-underline">Engines</a> / {crumb}
           </div>
           <h1 className="mt-4 text-[clamp(34px,5vw,56px)] font-extrabold leading-[1.08] tracking-[-0.025em]">
             {title} <span className="text-orange">{accent}</span>
@@ -66,7 +70,7 @@ export function SiteFooter() {
   return (
     <div className="mt-24 bg-navy">
       <footer className="mx-auto flex max-w-[1180px] flex-wrap justify-between gap-4 px-4 py-6 text-sm text-band-muted sm:px-10">
-        <span>© 2026 Access India Initiative (AII) Netherlands · <a className="text-band-fg" href="/privacy/">Privacy</a></span>
+        <span>© 2026 Access India Initiative (AII) Netherlands · <a className="text-band-fg" href={`${SITE}/privacy/`}>Privacy</a></span>
         <span>Eindhoven · Founding partner <a className="text-band-fg" href="https://www.airopa.co" target="_blank" rel="noopener">Airopa Global</a></span>
       </footer>
     </div>

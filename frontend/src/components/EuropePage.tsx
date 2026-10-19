@@ -49,7 +49,7 @@ export function EuropePage() {
           loading={loading}
           onSubmit={run}
           placeholder="yourcompany.in"
-          hint="We read your public website and annual report, European trade data and professional profiles. Nothing is asked of you. A check takes about a minute."
+          hint="We read your public website and annual report, European trade data and professional profiles. Nothing is asked of you. A first check takes one to two minutes."
         />
         {error && <p className="text-sm text-red">{error}</p>}
         {loading && <Scanning />}

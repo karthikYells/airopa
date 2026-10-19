@@ -83,3 +83,11 @@ def test_route_caches_and_preview_mail_goes_only_to_the_allow_list(monkeypatch):
     assert c.post("/api/europe/report", json={**body, "email": "someone@" + host}).json()["status"] == "queued"
     assert c.post("/api/europe/report", json={**body, "email": "varada.nama@airopa.co"}).json()["status"] == "sent"
     assert sent == ["varada.nama@airopa.co"] and get_settings().europe_mail_allow == "airopa.co"
+
+
+def test_unknown_offering_shows_no_scores():
+    a = _assessment()
+    a.offering = None
+    p = europe_snapshot.build(a)
+    assert p["mode"] == "NO_OFFERING" and "market" not in p and "readiness" not in p and "summary" not in p
+    assert "Tell us your main products" in p["message"] and [e["title"] for e in p["own_evidence"]] == ["Your Europe presence today"]

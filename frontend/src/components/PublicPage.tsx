@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { copyToNetlifyForms, getExamples, requestReport, scoreCompany } from "../api";
 import type { HubCard, Market, OwnEvidence, PeerHeadline, Snapshot } from "../types";
 import {
-  DomainInput, Rich, Scanning, SiteFooter, SiteHeader, bandStyle, companyFromUrl, setCompanyInUrl,
+  DomainInput, Rich, SITE, Scanning, SiteFooter, SiteHeader, bandStyle, companyFromUrl, setCompanyInUrl,
 } from "./ui";
 
 /** The public India Market Assessment, an engine page on accessindia.nl.
@@ -462,7 +462,7 @@ export function ReportForm({ data, engine = "india" }: { data: Snapshot; engine?
           <p className="mt-3 text-xs text-mute">
             Your report is sent by our partner Airopa Global from accessindia@airopa.co. We use your details only to
             send this report and, if you ticked the box, to arrange the call.{" "}
-            <a href="/privacy/" target="_blank" rel="noreferrer">Privacy notice</a>
+            <a href={`${SITE}/privacy/`} target="_blank" rel="noreferrer">Privacy notice</a>
           </p>
         </form>
       )}

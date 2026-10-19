@@ -177,7 +177,11 @@ def _text(html: str) -> str:
     try:
         tree = HTMLParser(html[:_MAX_HTML])
         tree.strip_tags(["script", "style", "noscript"])
-        return tree.body.text(separator="\n") if tree.body else tree.text()
+        raw = tree.body.text(separator="\n") if tree.body else tree.text()
+        # Collapse indentation and blank runs: some sites are 90% whitespace,
+        # which pushed the real content past what the model is shown.
+        raw = re.sub(r"[ \t\r\f\v]+", " ", raw)
+        return re.sub(r"\n\s*\n+", "\n", raw).strip()
     except Exception:
         return ""
 

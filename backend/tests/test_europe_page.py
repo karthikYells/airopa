@@ -1,0 +1,85 @@
+"""Increments 4 and 5: scores, page payload, API route and the preview's mail rule.
+The pipeline is faked from real-shaped parts; no network."""
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from app.config import get_settings
+from app.main import app
+from app.narrative import europe_snapshot
+from app.pipeline.europe import EuropeAssessment
+from app.reference import europe_reference as ref
+from app.scoring import europe as scoring
+from app.signals.europe_presence import EuropePresence
+from app.signals.products import Offering
+
+TOWELS = {"name": "Towels", "hs": "630260", "group": "tex_madeups", "sector": "textiles_apparel_leather",
+          "hs_label": "Toilet and kitchen linen", "evidence": "towels", "url": "https://w.in/"}
+VIEW = {"hs": "630260", "extra_eu": 9.7e8, "extra_eu_growth": 0.03, "india": 1.5e8, "india_growth": 0.148,
+        "india_share": 0.154, "china_share": 0.076, "basis": "product"}
+
+
+def _assessment(certs=(), verdict="EXPORTING", text="") -> EuropeAssessment:
+    a = EuropeAssessment(input_url="w.in", domain="w.in", name="Weave Ltd", reachable=True)
+    a.offering = Offering(kind="goods", products=[TOWELS], sector="textiles_apparel_leather")
+    a.demand = [{"product": TOWELS, "view": VIEW, "tariff": {"rate": 12.0, "year": "2023", "hs": "630260"}}]
+    a.presence = EuropePresence(verdict=verdict, reason="Some European activity.", europe_people=4,
+                                by_country={"DE": 3, "UK": 1}, commercial=2)
+    a.certs, a.site_text = list(certs), text
+    a.services = ref.services()
+    a.org = {"employees": 1200, "city": "Surat"}
+    a.market = scoring.market_opportunity(a)
+    a.ready = scoring.readiness(a)
+    a.time_range = scoring.time_to_first_order(a, a.ready)
+    a.countries = scoring.rank_countries(
+        [{"code": "DE", "name": "Germany", "extra": 2.5e8, "india": 3e7, "growth": 0.02},
+         {"code": "PL", "name": "Poland", "extra": 5.5e7, "india": 1.8e7, "growth": 0.17},
+         {"code": "FR", "name": "France", "extra": 1.5e8, "india": 3.3e7, "growth": 0.0}], a.presence, False)
+    return a
+
+
+def test_scores_and_reasons_follow_the_facts():
+    a = _assessment()
+    dims = {d.name: d for d in a.market.dimensions}
+    assert dims["Tariffs and trade terms"].points == 6 and "12%" in dims["Tariffs and trade terms"].basis
+    assert dims["Competitive position"].points == 14                      # India gaining, share >= 5%
+    cert = next(d for d in a.ready.dimensions if d.name == "Certification and compliance")
+    assert cert.points == 4 and "OEKO-TEX" in cert.basis
+    assert a.time_range["range"] == "9 to 15 months"                      # exporting + certification gap
+    better = _assessment(certs=["OEKO-TEX", "GOTS", "BSCI / Sedex / SA8000", "ISO 9001"], text="OEKO-TEX ZDHC")
+    assert better.ready.points > a.ready.points and better.time_range["range"] == "6 to 9 months"
+    assert [c["code"] for c in a.countries][0] == "DE"                    # size outweighs a small high-share market
+
+
+def test_rules_follow_the_product():
+    regs = scoring.regs_for(_assessment())
+    assert "Textile chemicals (REACH)" in regs and "EUDR" not in regs and "GDPR" not in regs
+
+
+def test_payload_has_the_page_blocks_and_no_unverified_claims():
+    p = europe_snapshot.build(_assessment())
+    assert p["engine"] == "europe" and p["mode"] == "STANDARD"
+    assert p["summary"]["headline"].startswith("Europe is buying what you sell")
+    assert {d["name"] for d in p["market"]["dimensions"]} >= {"Addressable demand", "Tariffs and trade terms"}
+    assert p["lead_capture"]["title"] == "We become your European team" and len(p["withheld"]) == 8
+    text = str(p)
+    assert "December 2026" not in text            # the EU–India signing date is still "to verify"
+    assert "europe's shift" not in text           # names keep their capitals in the why line
+
+
+def test_route_caches_and_preview_mail_goes_only_to_the_allow_list(monkeypatch):
+    from app.api import routes_europe
+    calls = []
+    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None: calls.append(host) or _assessment())
+    sent = []
+    monkeypatch.setattr(routes_europe.mailer, "send", lambda *a, **k: sent.append(a[1]) or (True, "ok"))
+    import uuid
+    host = f"weave-{uuid.uuid4().hex[:8]}.in"      # fresh, so no earlier run is cached
+    c = TestClient(app)
+    p = c.post("/api/europe/score", json={"url": host}).json()
+    p2 = c.post("/api/europe/score", json={"url": host}).json()
+    assert p["mode"] == "STANDARD" and p2["run_id"] == p["run_id"] and calls == [host]
+    body = {"run_id": p["run_id"], "snapshot_token": p["snapshot_token"], "name": "T", "company": "Weave"}
+    assert c.post("/api/europe/report", json={**body, "email": "someone@" + host}).json()["status"] == "queued"
+    assert c.post("/api/europe/report", json={**body, "email": "varada.nama@airopa.co"}).json()["status"] == "sent"
+    assert sent == ["varada.nama@airopa.co"] and get_settings().europe_mail_allow == "airopa.co"

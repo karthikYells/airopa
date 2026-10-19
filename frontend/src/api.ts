@@ -31,8 +31,8 @@ export interface ReportRequest {
 
 /** Ask the engine to email the PDF. Returns "sent" or "queued", or throws
  *  with the engine's reason (invalid_email, personal_email, ...). */
-export async function requestReport(body: ReportRequest): Promise<"sent" | "queued"> {
-  const res = await fetch(`${BASE}/api/report`, {
+export async function requestReport(path: string, body: ReportRequest): Promise<"sent" | "queued"> {
+  const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -76,4 +76,16 @@ export async function getExamples(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/** Europe Market Assessment: assess an Indian company's website. */
+export async function scoreEurope(url: string): Promise<Snapshot> {
+  const res = await fetch(`${BASE}/api/europe/score`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  if (res.status === 429) throw new Error("You have run several checks in a short time. Please try again in an hour.");
+  if (!res.ok) throw new Error(`Something went wrong (${res.status}). Please try again.`);
+  return res.json();
 }

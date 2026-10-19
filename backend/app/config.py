@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     apollo_peer_search: bool = True
     # Europe Market Assessment: Apollo company record per Indian company (1 credit, cached).
     apollo_europe_enrich: bool = True
+    # Europe preview: the report PDF is emailed only to these domains; other
+    # requests are kept as leads and followed up by hand.
+    europe_mail_allow: str = "airopa.co"
     # Show the peer count publicly. Off until peer quality is reviewed (2026-10-17):
     # a loose industry match produced fashion brands as peers of a components maker.
     publish_peer_headline: bool = False

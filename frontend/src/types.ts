@@ -82,6 +82,13 @@ export interface Snapshot {
   provisional_resolution?: boolean;
   peer_headline?: PeerHeadline | null;
   india_status?: string;
+  // Europe Market Assessment
+  engine?: string;
+  europe_status?: string | null;
+  readiness?: HubCard | null;
+  countries?: { code: string; name: string; why: string }[];
+  uk_note?: string | null;
+  time_to_first_order?: { range: string; basis: string; note: string } | null;
   // The short version: a sharp summary built only from facts on the page.
   summary?: { headline: string; body: string; close: string } | null;
   market?: Market | null;

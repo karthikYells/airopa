@@ -73,14 +73,14 @@ def get_run(run_id: str) -> dict | None:
                 "created_at": r.created_at, "payload": json.loads(r.payload)}
 
 
-def latest_public_run(host: str, max_age_hours: float) -> dict | None:
+def latest_public_run(host: str, max_age_hours: float, surface: str = "public") -> dict | None:
     """Most recent public snapshot for a domain, if fresh enough to reuse
     (Section 9.7: repeated lookups of the same company cost nothing)."""
     if _Session is None:
         init_db()
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=max_age_hours)
     with _Session() as s:
-        r = (s.query(Run).filter(Run.host == host, Run.surface == "public",
+        r = (s.query(Run).filter(Run.host == host, Run.surface == surface,
                                  Run.created_at >= cutoff)
              .order_by(Run.created_at.desc()).first())
         if r is None:

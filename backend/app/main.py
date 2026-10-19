@@ -6,10 +6,13 @@ the allowed origins to the tool's domain in production.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_internal, routes_public, routes_tasks
+from app.api import routes_europe, routes_internal, routes_public, routes_tasks
 from app.config import get_settings
 from app.data.store import init_db
 
@@ -31,6 +34,13 @@ app.add_middleware(
 app.include_router(routes_public.router, prefix="/api", tags=["public"])
 app.include_router(routes_internal.router, prefix="/api", tags=["internal"])
 app.include_router(routes_tasks.router, prefix="/api", tags=["tasks"])
+app.include_router(routes_europe.router, prefix="/api", tags=["europe"])
+
+# Europe Market Assessment preview page, served by the engine itself until the
+# accessindia.nl page goes live (built from frontend/ with VITE_ENGINE=europe).
+_PREVIEW = Path(__file__).resolve().parent / "static" / "europe-preview"
+if _PREVIEW.exists():
+    app.mount("/preview/europe", StaticFiles(directory=_PREVIEW, html=True), name="europe-preview")
 
 
 @app.on_event("startup")

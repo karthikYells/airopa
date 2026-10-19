@@ -65,7 +65,7 @@ def _header(canvas, doc):
                       h - 13 * mm, "Netherlands")
     canvas.setFillColor(colors.HexColor("#A3A5AD"))
     canvas.setFont("Helvetica", 8)
-    canvas.drawRightString(w - 18 * mm, h - 11 * mm, "India Market Assessment")
+    canvas.drawRightString(w - 18 * mm, h - 11 * mm, getattr(doc, "engine_name", "India Market Assessment"))
     canvas.drawRightString(w - 18 * mm, h - 15.5 * mm, "with founding partner Airopa Global")
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
@@ -76,13 +76,16 @@ def _header(canvas, doc):
 
 def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
     buf = io.BytesIO()
+    europe = payload.get("engine") == "europe"
+    engine_name = "Europe Market Assessment" if europe else "India Market Assessment"
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
                             topMargin=30 * mm, bottomMargin=18 * mm,
-                            title="India Market Assessment", author="Access India Netherlands")
+                            title=engine_name, author="Access India Netherlands")
+    doc.engine_name = engine_name
     c = payload.get("company") or {}
     story: list = []
 
-    story.append(Paragraph("INDIA MARKET ASSESSMENT", _S["eyebrow"]))
+    story.append(Paragraph(engine_name.upper(), _S["eyebrow"]))
     story.append(Paragraph(_esc(c.get("name") or c.get("input") or ""), _S["h1"]))
     facts = [c.get("sector"), c.get("location") or c.get("country"), c.get("revenue"),
              c.get("headcount"), c.get("founded")]
@@ -133,8 +136,9 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
                                ("TOPPADDING", (0, 0), (-1, -1), 9), ("BOTTOMPADDING", (0, 0), (-1, -1), 9)]))
         story += [t, Spacer(1, 6)]
 
-    if payload.get("india_status"):
-        t = Table([[Paragraph(f'<b>Your India status.</b> {_esc(payload["india_status"])}',
+    status = payload.get("europe_status") if europe else payload.get("india_status")
+    if status:
+        t = Table([[Paragraph(f'<b>Your {"Europe" if europe else "India"} status.</b> {_esc(status)}',
                               _S["body"])]])
         t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), ACCENT_SOFT),
                                ("LEFTPADDING", (0, 0), (-1, -1), 8),
@@ -158,13 +162,27 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
 
     market = payload.get("market")
     if market:
-        story += reasoned(market, "India as a market for what you sell", ACCENT,
+        story += reasoned(market, "Europe as a market for what you sell" if europe else "India as a market for what you sell", ACCENT,
                           [(d["name"], d["level"], d["insight"]) for d in market["dimensions"]])
 
     th = payload.get("technology_hub")
     if th:
         story += reasoned(th, "India as a place to build technology", GREEN,
                           [(d["name"], d["level"], d["reason"]) for d in th["dimensions"]])
+    rd = payload.get("readiness")
+    if rd:
+        story += reasoned(rd, "Your readiness to sell in Europe", GREEN,
+                          [(d["name"], d["level"], d["reason"]) for d in rd["dimensions"]])
+    if payload.get("countries"):
+        story.append(Paragraph("Where to start in Europe", _S["h2"]))
+        for cty in payload["countries"]:
+            story.append(Paragraph(f'<b>{_esc(cty["name"])}</b>: {_esc(cty["why"])}', _S["bullet"], bulletText="•"))
+        if payload.get("uk_note"):
+            story.append(Paragraph(_esc(payload["uk_note"]), _S["bullet"], bulletText="•"))
+        ttf = payload.get("time_to_first_order")
+        if ttf:
+            story.append(Paragraph(f'<b>Indicative time to first European order: {_esc(ttf["range"])}</b>, '
+                                   f'{_esc(ttf["basis"])}. {_esc(ttf["note"])}', _S["body"]))
 
 
     if payload.get("message"):

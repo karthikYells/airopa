@@ -64,7 +64,8 @@ def regs_for(a) -> list[str]:
             for r in REG_BY_GROUP.get(p.get("group") or "", []):
                 if r not in out:
                     out.append(r)
-        if a.offering.services:
+        # Personal-data rules bite on IT and data services, not on design or BPO lines of a manufacturer.
+        if a.offering.kind == "services" or any(s["code"] == "SI" for s in a.offering.services) and not a.offering.products:
             out.append("GDPR")
     return out + ["Sustainability reporting"] if (a.offering and (a.offering.products or a.offering.services)) else []
 _EU_LANGS = {"de", "fr", "nl", "it", "es", "pl", "sv", "cs", "pt", "da", "fi"}

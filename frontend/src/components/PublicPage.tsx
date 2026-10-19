@@ -132,7 +132,7 @@ function SnapshotBody({ data }: { data: Snapshot }) {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="font-mono text-[12.5px] font-medium uppercase tracking-[0.12em] text-orange-ink">
       {children}
@@ -147,7 +147,7 @@ const levelText = (level: string) =>
 
 /** A score with its reasoning: the why line, then each dimension in words
  *  with the reason behind it. Points never leave the engine. */
-function ReasonedCard(props: {
+export function ReasonedCard(props: {
   accent: "orange" | "green"; label: string; question: string; score: number; band: string;
   why: string; dims: { name: string; level: string; reason: string }[]; basis: string;
 }) {
@@ -225,7 +225,7 @@ function PeerCard({ peer }: { peer: PeerHeadline }) {
 }
 
 /** The short version: their gap, in their own facts. */
-function SummaryPanel({ s }: { s: NonNullable<Snapshot["summary"]> }) {
+export function SummaryPanel({ s }: { s: NonNullable<Snapshot["summary"]> }) {
   return (
     <section className="rounded-panel bg-navy px-6 py-6 text-band-fg sm:px-8">
       <p className="font-mono text-[11.5px] uppercase tracking-[0.12em] text-orange">The short version</p>
@@ -240,7 +240,7 @@ const chipTone = (t: string) =>
   t === "red" ? "bg-red/10 text-red" : t === "green" ? "bg-green/10 text-green" : "bg-line text-ink";
 
 /** Block 1: who they are, their own financial trend, and where they stand in India. */
-function CompanyBar({ data }: { data: Snapshot }) {
+export function CompanyBar({ data }: { data: Snapshot }) {
   const c = data.company!;
   const facts = [c.sector, c.location ?? c.country, c.revenue, c.headcount, c.founded]
     .filter(Boolean) as string[];
@@ -251,8 +251,8 @@ function CompanyBar({ data }: { data: Snapshot }) {
           <h2 className="text-[clamp(22px,2.6vw,28px)] font-extrabold tracking-tight text-ink">{c.name || c.input}</h2>
           <p className="text-[15px] text-mute">{facts.join("  ·  ")}</p>
         </div>
-        {data.india_status && (
-          <p className="max-w-[420px] text-[15px] font-semibold text-ink lg:text-right">{data.india_status}</p>
+        {(data.india_status || data.europe_status) && (
+          <p className="max-w-[420px] text-[15px] font-semibold text-ink lg:text-right">{data.india_status || data.europe_status}</p>
         )}
       </div>
       {c.signals && c.signals.length > 0 && (
@@ -291,7 +291,7 @@ function ScaleCard({ scale }: { scale: NonNullable<Snapshot["indicative_scale"]>
   );
 }
 
-function EvidenceCard({ p }: { p: OwnEvidence }) {
+export function EvidenceCard({ p }: { p: OwnEvidence }) {
   const dot = p.tone === "red" ? "bg-red" : p.tone === "orange" ? "bg-orange" : "bg-[#2F6FD0]";
   return (
     <section className="rounded-panel border border-line bg-white p-6">
@@ -312,7 +312,7 @@ function EvidenceCard({ p }: { p: OwnEvidence }) {
   );
 }
 
-function Withheld({ items }: { items: string[] }) {
+export function Withheld({ items }: { items: string[] }) {
   return (
     <section className="rounded-panel border border-dashed border-mute/40 bg-white p-6">
       <h3 className="text-[21px] font-bold text-ink">What this assessment deliberately does not show you</h3>
@@ -351,7 +351,8 @@ const ROLES = ["CEO / Founder", "CFO / Finance", "CTO / CIO / Technology", "COO 
 
 /** "Email me the report": same fields, rules and wording as the GCC Business
  *  Case engine. The engine saves the lead and emails the PDF of this snapshot. */
-function ReportForm({ data }: { data: Snapshot }) {
+export function ReportForm({ data, engine = "india" }: { data: Snapshot; engine?: "india" | "europe" }) {
+  const europe = engine === "europe";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState(data.company?.name ?? "");
@@ -370,12 +371,12 @@ function ReportForm({ data }: { data: Snapshot }) {
     if (!name.trim() || !company.trim()) { setMsg("Please fill in your name and company."); return; }
     setBusy(true);
     try {
-      const status = await requestReport({
+      const status = await requestReport(europe ? "/api/europe/report" : "/api/report", {
         run_id: data.run_id!, snapshot_token: data.snapshot_token ?? "",
         name: name.trim(), email: email.trim(), company: company.trim(),
         role, call_partner: call, allow_personal: allowPersonal, bot_field: bot,
       });
-      void copyToNetlifyForms({
+      if (!europe) void copyToNetlifyForms({
         "bot-field": bot, name: name.trim(), email: email.trim(), company: company.trim(), role,
         call_partner: call ? "yes" : "no", email_type: allowPersonal ? "personal" : "work",
         domain: data.company?.input ?? "", snapshot_link: window.location.href,
@@ -407,8 +408,9 @@ function ReportForm({ data }: { data: Snapshot }) {
       <div className="font-mono text-[12.5px] uppercase tracking-[0.12em] text-orange-ink">Free report</div>
       <h3 className="mt-1 text-[21px] font-bold text-ink">Get this assessment in your inbox</h3>
       <p className="mt-1 text-[15px] text-mute">
-        A PDF of your India Market Assessment: India as a market for what you sell, where you stand in
-        India today, and what the full business case would add. Ready to forward to your board.
+        {europe
+          ? "A PDF of your Europe Market Assessment: Europe as a market for what you sell, how ready you are to win it, where to start, and what the full business case would add. Ready to forward to your board."
+          : "A PDF of your India Market Assessment: India as a market for what you sell, where you stand in India today, and what the full business case would add. Ready to forward to your board."}
       </p>
       {done ? (
         <p className="mt-5 rounded-[10px] bg-orange-soft px-4 py-3 text-[15px] text-ink" role="status">{done}</p>
@@ -447,7 +449,9 @@ function ReportForm({ data }: { data: Snapshot }) {
           )}
           <label className="mt-4 flex gap-2.5 text-sm text-ink">
             <input type="checkbox" className="mt-1 accent-[#E8791C]" checked={call} onChange={(e) => setCall(e.target.checked)} />
-            <span>I'd also like a free 30-minute call with Access India's GCC partner, Airopa Global. I agree to my details being shared with Airopa Global for this purpose.</span>
+            <span>{europe
+              ? "I'd also like a free 30-minute call with Airopa Global about entering Europe. I agree to my details being shared with Airopa Global for this purpose."
+              : "I'd also like a free 30-minute call with Access India's GCC partner, Airopa Global. I agree to my details being shared with Airopa Global for this purpose."}</span>
           </label>
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <button type="submit" disabled={busy}
@@ -487,7 +491,7 @@ function Insufficient({ data }: { data: Snapshot }) {
   );
 }
 
-function Notice({ title, body }: { title?: string; body?: string }) {
+export function Notice({ title, body }: { title?: string; body?: string }) {
   return (
     <section className="rounded-panel border border-line bg-white p-6">
       <h3 className="text-[21px] font-bold text-ink">{title}</h3>

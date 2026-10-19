@@ -50,7 +50,7 @@ def _why(score, shown) -> str:
 
 
 def _card(score, question: str, basis: str, key: str) -> dict:
-    dims = [{"name": d.name, "level": _word_level(d.points, d.max_points) if d.points > 0 else "Not resolved",
+    dims = [{"name": d.name, "level": "Not resolved" if d.basis.startswith("Not resolved") else _word_level(d.points, d.max_points),
              key: d.basis} for d in score.dimensions]
     return {"label": score.label, "question": question, "score": round(score.points),
             "band": score.band.value, "coverage": round(score.coverage * 100),

@@ -142,8 +142,8 @@ class LLM:
         system = (
             "You read pages of a company's annual report and extract its key figures. "
             "Only use numbers printed on the pages. Return the currency (ISO code), the "
-            "unit the figures are in (units, thousand, million or billion), and for up to "
-            "4 financial years: the year, revenue (net sales / turnover / omzet / Umsatz) "
+            "unit the figures are in (units, thousand, lakh, crore, million or billion), and for up to "
+            "4 financial years: the year (the year the financial year ends, e.g. FY2024-25 is 2025), revenue (net sales / turnover / revenue from operations / omzet / Umsatz) "
             "and operating profit (EBIT / EBITA / operating result), each copied EXACTLY as "
             "printed (e.g. \"3,215.4\") together with the page number it is printed on. "
             "Use group/consolidated figures, not segments. If a figure is not printed, use null. "

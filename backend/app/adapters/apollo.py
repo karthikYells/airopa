@@ -228,3 +228,25 @@ def fetch(host: str, settings: Settings) -> ApolloResult | None:
                      or res.total_people_count >= settings.apollo_min_profiles)
     _save_cache(res)
     return res
+
+
+def enrich_org(domain: str, settings: Settings) -> dict | None:
+    """Apollo's company record for one domain (1 credit), cached in the store
+    for `apollo_cache_days`. Used by the Europe Market Assessment for revenue,
+    headcount, industry codes and city. None if Apollo is off or knows nothing."""
+    if not settings.apollo_enabled:
+        return None
+    domain = normalise_domain(domain)
+    doc = kv.get("apollo_org", domain)
+    if doc and time.time() - doc.get("fetched_at", 0) < settings.apollo_cache_days * 86400:
+        return doc.get("org")
+    headers = {"X-Api-Key": settings.apollo_api_key, "Cache-Control": "no-cache"}
+    try:
+        r = httpx.get(f"{_API}/organizations/enrich", params={"domain": domain},
+                      headers=headers, timeout=_TIMEOUT)
+        org = parse_org(r.json()) if r.status_code < 400 else None
+    except Exception:
+        return None
+    org = org if org and org.get("org_id") else None
+    kv.put("apollo_org", domain, {"org": org, "fetched_at": time.time()})
+    return org

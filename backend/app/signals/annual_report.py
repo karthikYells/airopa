@@ -21,11 +21,13 @@ _MAX_PAGES = 250
 _KEYWORDS = re.compile(
     r"key figures|financial highlights|kerncijfers|kennzahlen|chiffres cl[eé]s|"
     r"revenue|net sales|turnover|omzet|umsatz|operating (profit|result|income)|ebita|ebit\b|"
-    r"bedrijfsresultaat|operatives ergebnis", re.I)
+    r"bedrijfsresultaat|operatives ergebnis|revenue from operations|total income|profit before tax|ebitda", re.I)
 _UNIT = {"units": 1, "unit": 1, "thousand": 1e3, "thousands": 1e3, "million": 1e6,
-         "millions": 1e6, "billion": 1e9, "billions": 1e9}
+         "millions": 1e6, "billion": 1e9, "billions": 1e9,
+         # Indian reports: 1 lakh = 100,000; 1 crore = 10 million
+         "lakh": 1e5, "lakhs": 1e5, "crore": 1e7, "crores": 1e7}
 _FX_TO_EUR = {"EUR": 1.0, "USD": 0.92, "GBP": 1.17, "CHF": 1.05, "SEK": 0.088,
-              "NOK": 0.086, "DKK": 0.134}  # rough, as the Wikidata adapter
+              "NOK": 0.086, "DKK": 0.134, "INR": 0.0105}  # rough, as the Wikidata adapter
 
 
 def _year_of(url: str) -> int:
@@ -92,6 +94,16 @@ def _on_page(printed: str | None, page_no, pages: dict[int, str]) -> bool:
     return re.sub(r"\s+", "", printed) in flat
 
 
+_UNIT_WORDS = {"thousand": r"thousands?|'000|000s|in 000", "million": r"millions?|mn|m",
+               "billion": r"billions?|bn", "lakh": r"lakhs?|lacs?", "crore": r"crores?|cr"}
+
+
+def _unit_printed(unit: str, text: str) -> bool:
+    key = unit.rstrip("s")
+    pattern = _UNIT_WORDS.get(key, re.escape(key))
+    return re.search(pattern, text, re.I) is not None
+
+
 def verify_financials(data: dict, pages: list[tuple[int, str]]) -> dict | None:
     """Keep only figures printed on the cited page. Returns
     {currency, scale, years: [{year, revenue, op_profit, rev_page, op_page}]} or None."""
@@ -99,6 +111,11 @@ def verify_financials(data: dict, pages: list[tuple[int, str]]) -> dict | None:
     scale = _UNIT.get(str(data.get("unit", "")).lower())
     cur = str(data.get("currency", "")).upper()
     if not scale or cur not in _FX_TO_EUR:
+        return None
+    # The unit must be printed on a page we read: a wrong unit (lakh for
+    # million) would put every figure out by a factor of ten or more.
+    unit = str(data.get("unit", "")).lower()
+    if scale != 1 and not any(_unit_printed(unit, t) for t in by_page.values()):
         return None
     years = []
     for y in data.get("years") or []:

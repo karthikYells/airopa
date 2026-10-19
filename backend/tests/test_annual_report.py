@@ -40,7 +40,7 @@ def test_fabricated_figures_are_dropped():
 
 def test_unknown_unit_or_currency_rejected():
     base = {"years": [{"year": 2025, "revenue": "3,090.8", "revenue_page": 12}]}
-    assert verify_financials({**base, "currency": "EUR", "unit": "lakh"}, PAGES) is None
+    assert verify_financials({**base, "currency": "EUR", "unit": "furlong"}, PAGES) is None
     assert verify_financials({**base, "currency": "XYZ", "unit": "million"}, PAGES) is None
 
 
@@ -57,3 +57,12 @@ def test_figures_become_filing_signals():
     assert rev.as_of_date == "2025-12-31" and rev.source_type.value == "filing"
     assert rec.get("PRESS.01").value is True   # 9.3% -> 8.4%
     assert rec.get("PRESS.02").value is True   # profit fell faster than revenue
+
+
+def test_unit_must_be_printed_and_indian_units_scale():
+    base = {"currency": "EUR", "years": [{"year": 2025, "revenue": "3,090.8", "revenue_page": 12}]}
+    assert verify_financials({**base, "unit": "lakh"}, PAGES) is None          # page says million
+    inr = [(4, "Revenue from operations (Rs. in crore) FY2024-25: 5,210.6")]
+    fin = verify_financials({"currency": "INR", "unit": "crore",
+                             "years": [{"year": 2025, "revenue": "5,210.6", "revenue_page": 4}]}, inr)
+    assert round(fin["years"][0]["revenue"] / 1e6) == round(5210.6e7 * 0.0105 / 1e6)  # ~EUR 547m

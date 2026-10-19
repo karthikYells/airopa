@@ -146,6 +146,8 @@ class ScrapeResult:
     page_title_name: str | None = None                     # company name guess
     news_pages: list[dict] = field(default_factory=list)   # [{url, text}] own newsroom
     product_pages: list[dict] = field(default_factory=list)  # [{url, text}] what they sell
+    external_domains: list[str] = field(default_factory=list)  # other sites linked from home
+    languages: list[str] = field(default_factory=list)        # site language versions (hreflang)
     annual_report_urls: list[str] = field(default_factory=list)  # PDF links, own site
     error: str | None = None                               # why a crawl stopped early
 
@@ -169,6 +171,39 @@ def _text(html: str) -> str:
         return tree.body.text(separator="\n") if tree.body else tree.text()
     except Exception:
         return ""
+
+
+def _external_domains(html: str, base: str) -> list[str]:
+    """Other web domains the homepage links to (subsidiaries, group sites,
+    distributors), minus social and generic platforms."""
+    skip = ("facebook.", "linkedin.", "twitter.", "x.com", "instagram.", "youtube.", "google.",
+            "apple.com", "wa.me", "whatsapp.", "t.me", "pinterest.", "bit.ly", "goo.gl",
+            "w3.org", "schema.org", "gstatic.", "cloudflare", "jsdelivr", "wordpress.")
+    out: list[str] = []
+    try:
+        own = _site(urlparse(base).netloc)
+        for a in HTMLParser(html[:_MAX_HTML]).css("a"):
+            host = urlparse(urljoin(base, a.attributes.get("href") or "")).netloc.lower()
+            host = host[4:] if host.startswith("www.") else host
+            if host and "." in host and _site(host) != own and not any(k in host for k in skip):
+                if host not in out:
+                    out.append(host)
+    except Exception:
+        pass
+    return out[:40]
+
+
+def _languages(html: str) -> list[str]:
+    """Language versions the site declares (hreflang), e.g. ['en', 'de', 'fr']."""
+    langs: list[str] = []
+    try:
+        for ln in HTMLParser(html[:_MAX_HTML]).css("link[hreflang], a[hreflang]"):
+            code = (ln.attributes.get("hreflang") or "").lower().split("-")[0]
+            if code and code != "x" and code not in langs:
+                langs.append(code)
+    except Exception:
+        pass
+    return langs
 
 
 def _site(host: str) -> str:
@@ -354,6 +389,8 @@ def scrape(input_url: str, products: bool = False, budget_s: float = 75.0,
             res.homepage_text = _text(home_html)[:20000]
             res.product_text = res.homepage_text[:4000]
             res.site_title = _page_title(home_html)
+            res.external_domains = _external_domains(home_html, str(home.url))
+            res.languages = _languages(home_html)
             res.page_title_name = _name_guess(home_html, res.site_title)
 
             # India check on the homepage counts.

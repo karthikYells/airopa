@@ -209,7 +209,7 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
         story.append(Paragraph(f"Companies selling {_esc(priv.get('competitor_segment') or 'what you sell')} with "
                                "teams in Europe today, by the number of people there on public professional "
                                "profiles. Each was checked against its own website.", _S["muted"]))
-        for c in named:
+        for c in named[:3]:   # the three with the most people in Europe
             story.append(Paragraph(f"<b>{_esc(c['name'])}</b> ({_esc(c['domain'])}): at least {c['europe_people']:,} people "
                                    f"in Europe" + ("; most of its team is in India" if c.get("indian") else ""),
                                    _S["bullet"], bulletText="•"))

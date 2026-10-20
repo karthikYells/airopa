@@ -10,7 +10,7 @@ the page. A candidate whose site cannot be read is dropped, never assumed.
 Europe presence and origin come from Apollo's free people search: 5 or more
 Europe-based people counts as present; a company with most of its people in
 India counts as an Indian rival. Names never go to the public page: they are
-kept with the run on the server and used only in the emailed PDF.
+kept with the run on the server and used only in the emailed PDF (top three).
 Results are kept in the shared store for 90 days per prospect.
 """
 from __future__ import annotations
@@ -120,7 +120,7 @@ def find(domain: str, name: str | None, offering, settings: Settings, llm) -> di
            "europe_people": sum(c["europe_people"] for c in in_eu),
            "recent_people": sum(c.get("recent", 0) for c in in_eu),
            "named": [{"name": c["name"], "domain": c["domain"], "europe_people": c["europe_people"],
-                      "indian": c.get("indian", False)} for c in in_eu[:5]],
+                      "indian": c.get("indian", False)} for c in in_eu[:3]],
            "candidates": len(cands), "confirmed": len(confirmed), "fetched_at": time.time()}
     kv.put("competitors", own, out)
     return out

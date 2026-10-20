@@ -87,12 +87,30 @@ def _company(a) -> dict:
     }
 
 
+def _known_total(c: dict) -> int:
+    """Verified competitors whose size we know (20+ people on public profiles).
+    Tiny or unknown sellers are left out of the base: we cannot tell whether
+    they have anyone in Europe, so counting them would understate the share."""
+    listed = c.get("competitors")
+    if not listed:
+        return c.get("confirmed", 0)
+    return sum(1 for x in listed if x.get("known") or x.get("europe_people", 0) >= 5)
+
+
+def _strong(c: dict | None) -> bool:
+    """The competitor story leads the page only when it is a real pattern:
+    3+ verified competitors in Europe out of 5+ of known size. Market leaders
+    often block automated reads, so a thin count says more about what we could
+    verify than about the market, and is not headlined."""
+    return bool(c) and c.get("in_europe", 0) >= 3 and _known_total(c) >= 5
+
+
 def _competitor_card(a) -> dict | None:
     c = a.competitors
-    if not c or c.get("confirmed", 0) < 5 or not c.get("in_europe"):
+    if not _strong(c):
         return None
     seg = a.offering.segment if a.offering and a.offering.segment else "what you sell"
-    return {"with_centre": c["in_europe"], "total": c["confirmed"],
+    return {"with_centre": c["in_europe"], "total": _known_total(c),
             "claim": f"companies selling {seg} already have teams in Europe.",
             "aggregate_note": (f"Together they have at least {c['europe_people']:,} people there"
                                + (f", {c['recent_people']:,} of whom started in the last 12 months." if c.get("recent_people") else ".")),
@@ -162,9 +180,9 @@ def _summary(a, peer: dict | None = None) -> dict | None:
     elif pv == "ESTABLISHED":
         body.append("You already have a base in Europe; the question is how far to take it.")
     c = a.competitors
-    if c and c.get("in_europe") and c.get("confirmed", 0) >= 5 and not (a.presence and a.presence.verdict == "ESTABLISHED"):
+    if _strong(c) and not (a.presence and a.presence.verdict == "ESTABLISHED"):
         headline = "Your competitors are already selling in Europe. You are not, yet."
-    if c and c.get("in_europe"):
+    if _strong(c):
         body.insert(0,
                     f"{c['in_europe']} companies selling what you sell already have teams in Europe"
                     + (f", and {c['indian_in_europe']} of them run most of their work from India like you"
@@ -181,17 +199,27 @@ def _competitor_panel(a) -> dict | None:
     if not c or not c.get("in_europe"):
         return None
     seg = a.offering.segment if a.offering and a.offering.segment else "what you sell"
-    b = [f"We found **{c['in_europe']} companies selling {seg}** that already have teams in Europe, "
-         f"with at least **{c['europe_people']:,} people** there."]
+    n = c["in_europe"]
+    b = [(f"We found **1 company selling {seg}** that already has a team in Europe, " if n == 1 else
+          f"We found **{n} companies selling {seg}** that already have teams in Europe, ")
+         + f"with at least **{c['europe_people']:,} people** there."]
     if c.get("recent_people"):
         b.append(f"**{c['recent_people']:,}** of those people started their roles in the last 12 months: "
                  "your competitors are hiring in Europe now.")
     if c.get("indian_in_europe"):
-        n = c["indian_in_europe"]
-        b.append(f"**{n} of them run most of their teams from India**, the same cost base you have, "
-                 "and already sell to European buyers.")
-    b.append("Which companies they are is in your emailed report.")
-    return {"title": "Your competitors are already in Europe", "tone": "red", "bullets": b}
+        k = c["indian_in_europe"]
+        if n == 1:
+            lead, verb = "**It runs most of its team from India**", "sells"
+        elif k == 1:
+            lead, verb = "**1 of them runs most of its team from India**", "sells"
+        else:
+            lead, verb = f"**{k} of them run most of their teams from India**", "sell"
+        b.append(f"{lead}, the same cost base you have, and already {verb} to European buyers.")
+    b.append("Which company it is is in your emailed report." if n == 1 else
+             "Which companies they are is in your emailed report.")
+    title = ("Your competitors are already in Europe" if _strong(c) else
+             "A competitor is already in Europe" if n == 1 else "Some of your competitors are already in Europe")
+    return {"title": title, "tone": "red", "bullets": b}
 
 
 def _evidence(a) -> list[dict]:

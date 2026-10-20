@@ -47,6 +47,17 @@ def _homepage(domain: str) -> str:
         return ""
 
 
+def _excerpt(text: str, segment: str, size: int = 1500) -> str:
+    """The part of a homepage that talks about the offering. Large companies
+    open with cookie, language and navigation text, so the first 1,500
+    characters often never mention what they sell."""
+    low = text.lower()
+    hits = [low.find(w[:5]) for w in re.findall(r"[a-z]{4,}", segment.lower())]
+    hits = [h for h in hits if h >= 0]
+    start = max(0, min(hits) - 300) if hits and min(hits) > size - 300 else 0
+    return text[start:start + size]
+
+
 def _search(keywords: list[str], own: str, settings: Settings) -> list[dict]:
     if not keywords or not settings.apollo_enabled:
         return []
@@ -84,7 +95,8 @@ def find(domain: str, name: str | None, offering, settings: Settings, llm) -> di
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         texts = list(pool.map(lambda c: _homepage(c["domain"]), cands.values()))
-    readable = [{**c, "text": t} for c, t in zip(cands.values(), texts) if len(t) > 200]
+    readable = [{**c, "text": t, "excerpt": _excerpt(t, offering.segment)}
+                for c, t in zip(cands.values(), texts) if len(t) > 200]
     verdicts = {}
     for i in range(0, len(readable), 12):
         verdicts.update(llm.check_competitors(offering.segment, readable[i:i + 12]))

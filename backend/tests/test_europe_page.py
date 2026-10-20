@@ -157,7 +157,7 @@ def test_competitor_names_reach_only_the_pdf(monkeypatch):
     from app.api import routes_europe
     from app.reports.pdf import build_pdf
     a = _assessment()
-    a.competitors = {"in_europe": 3, "indian_in_europe": 1, "europe_people": 120, "recent_people": 30,
+    a.competitors = {"in_europe": 3, "indian_in_europe": 1, "europe_people": 120, "recent_people": 30, "confirmed": 8,
                      "named": [{"name": "RivalCo", "domain": "rivalco.eu", "europe_people": 80, "indian": False}]}
     monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None: a)
     c = TestClient(app)
@@ -186,3 +186,24 @@ def test_launch_sends_to_any_work_address_and_holds_personal(monkeypatch):
     r = c.post("/api/europe/report", json={**body, "email": "asha@gmail.com", "allow_personal": True}).json()
     assert r["status"] == "queued"
     assert sent == [("asha@weave-textiles.in", "Your Europe Market Assessment: Weave Ltd")]
+
+
+def test_one_competitor_in_europe_is_not_headlined():
+    """KLR case: 14 verified sellers, mostly tiny, 1 in Europe. No '1 of 14' card,
+    no competitor-led headline; the panel says '1 company' in the singular."""
+    a = _assessment(verdict="GREENFIELD")
+    rows = [{"name": "Robit", "domain": "robit.fi", "europe_people": 43, "known": True}] + \
+           [{"name": f"Small{i}", "domain": f"s{i}.cn", "europe_people": 0, "known": i < 3} for i in range(13)]
+    a.competitors = {"in_europe": 1, "indian_in_europe": 0, "europe_people": 43, "recent_people": 12,
+                     "confirmed": 14, "competitors": rows,
+                     "named": [{"name": "Robit", "domain": "robit.fi", "europe_people": 43, "indian": False}]}
+    p = europe_snapshot.build(a)
+    assert p.get("peer_headline") is None
+    assert not p["summary"]["headline"].startswith("Your competitors")
+    panel = next(e for e in p["own_evidence"] if e["title"] == "A competitor is already in Europe")
+    assert "1 company selling" in panel["bullets"][0] and "Which company it is" in panel["bullets"][-1]
+    rows += [{"name": f"Big{i}", "domain": f"b{i}.de", "europe_people": 50, "known": True} for i in range(2)]
+    a.competitors.update(in_europe=3, competitors=rows)
+    p = europe_snapshot.build(a)
+    assert p["peer_headline"]["with_centre"] == 3 and p["peer_headline"]["total"] == 6   # known-size base only
+    assert p["summary"]["headline"].startswith("Your competitors are already selling in Europe")

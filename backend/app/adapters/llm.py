@@ -233,7 +233,7 @@ class LLM:
             "company's text that shows it; if no or unclear, use null. "
             'Reply with JSON only: {"<domain>": "<phrase or null>", ...}'
         )
-        body = "\n\n".join(f"DOMAIN {c['domain']}\n{c['text'][:1500]}" for c in candidates)
+        body = "\n\n".join(f"DOMAIN {c['domain']}\n{c.get('excerpt') or c['text'][:1500]}" for c in candidates)
         try:
             raw = self._complete(self._settings.llm_model_small, system, body, 1500)
             data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])

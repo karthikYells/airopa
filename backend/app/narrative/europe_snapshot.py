@@ -87,6 +87,18 @@ def _company(a) -> dict:
     }
 
 
+def _competitor_card(a) -> dict | None:
+    c = a.competitors
+    if not c or c.get("confirmed", 0) < 5 or not c.get("in_europe"):
+        return None
+    seg = a.offering.segment if a.offering and a.offering.segment else "what you sell"
+    return {"with_centre": c["in_europe"], "total": c["confirmed"],
+            "claim": f"companies selling {seg} already have teams in Europe.",
+            "aggregate_note": (f"Together they have at least {c['europe_people']:,} people there"
+                               + (f", {c['recent_people']:,} of whom started in the last 12 months." if c.get("recent_people") else ".")),
+            "cohort_definition": "companies with the same offering as yours, each checked against its own website"}
+
+
 def _peer(a) -> dict | None:
     pc = a.peer_cohort
     if not (pc and pc.get("publishable") and pc.get("with_presence")):
@@ -150,8 +162,10 @@ def _summary(a, peer: dict | None = None) -> dict | None:
     elif pv == "ESTABLISHED":
         body.append("You already have a base in Europe; the question is how far to take it.")
     c = a.competitors
+    if c and c.get("in_europe") and c.get("confirmed", 0) >= 5 and not (a.presence and a.presence.verdict == "ESTABLISHED"):
+        headline = "Your competitors are already selling in Europe. You are not, yet."
     if c and c.get("in_europe"):
-        body.insert(0 if not peer else 1,
+        body.insert(0,
                     f"{c['in_europe']} companies selling what you sell already have teams in Europe"
                     + (f", and {c['indian_in_europe']} of them run most of their work from India like you"
                        if c.get("indian_in_europe") else "") + ".")
@@ -275,8 +289,9 @@ def build(a) -> dict:
         return base
     base["mode"] = "STANDARD"
     base["europe_status"] = a.presence.reason if a.presence else None
-    base["peer_headline"] = _peer(a)
-    base["summary"] = _summary(a, base["peer_headline"])
+    comp_card = _competitor_card(a)
+    base["peer_headline"] = comp_card or _peer(a)
+    base["summary"] = _summary(a, None if comp_card else base["peer_headline"])
     base["market"] = _card(a.market, "Is Europe a market for what you sell?",
                            "Indicative. Based on Eurostat trade data for your products and World Bank tariff data; "
                            "the full business case tests it against your own buyers.", "insight")

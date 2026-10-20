@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     apollo_europe_enrich: bool = True
     # Europe preview: the report PDF is emailed only to these domains; other
     # requests are kept as leads and followed up by hand.
-    europe_mail_allow: str = "airopa.co"
+    europe_mail_allow: str = "airopa.co"   # "*" = all work addresses (set on Cloud Run at launch)
+    europe_site_url: str = "https://accessindia.nl/engines/europe-market-assessment/"
     # Visit log (app/api/visits.py). The full IP is stored only once the privacy
     # notice says so; until then the network (last part removed) is kept.
     visit_full_ip: bool = False

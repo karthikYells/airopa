@@ -46,12 +46,13 @@ export async function requestReport(path: string, body: ReportRequest): Promise<
 }
 
 /** Best-effort copy of the lead to Netlify Forms (only works on accessindia.nl). */
-export async function copyToNetlifyForms(fields: Record<string, string>): Promise<void> {
+export async function copyToNetlifyForms(fields: Record<string, string>,
+                                         formName = "india-market-assessment-report"): Promise<void> {
   try {
     await fetch("/", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ "form-name": "india-market-assessment-report", ...fields }).toString(),
+      body: new URLSearchParams({ "form-name": formName, ...fields }).toString(),
     });
   } catch {
     /* not on Netlify (local dev): the engine keeps its own copy */

@@ -376,11 +376,11 @@ export function ReportForm({ data, engine = "india" }: { data: Snapshot; engine?
         name: name.trim(), email: email.trim(), company: company.trim(),
         role, call_partner: call, allow_personal: allowPersonal, bot_field: bot,
       });
-      if (!europe) void copyToNetlifyForms({
+      void copyToNetlifyForms({
         "bot-field": bot, name: name.trim(), email: email.trim(), company: company.trim(), role,
         call_partner: call ? "yes" : "no", email_type: allowPersonal ? "personal" : "work",
         domain: data.company?.input ?? "", snapshot_link: window.location.href,
-      });
+      }, europe ? "europe-market-assessment-report" : "india-market-assessment-report");
       const safeEmail = email.trim();
       setDone(status === "sent"
         ? `Report sent to ${safeEmail}. It should arrive within a few minutes; if not, please check your spam folder.`

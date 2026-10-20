@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.data.store import get_run, latest_public_run, save_lead, save_run
 from app.narrative import europe_snapshot
 from app.pipeline import europe as europe_pipeline
+from app.reports import europe_email
 from app.reports.pdf import build_pdf
 
 router = APIRouter()
@@ -96,16 +97,18 @@ def europe_report(req: ReportRequest, request: Request) -> dict:
 
     domain = em["email"].rsplit("@", 1)[-1].lower()
     allowed = [d.strip().lower() for d in settings.europe_mail_allow.split(",") if d.strip()]
-    sent, detail = False, "preview: not on the send list, follow up by hand"
-    if domain in allowed:
-        subject = f"Your Europe Market Assessment: {payload.get('company', {}).get('name') or run['host']}"
-        text = (f"Dear {req.name},\n\nAttached is the Europe Market Assessment for "
-                f"{payload.get('company', {}).get('name') or run['host']}.\n\nAccess India Netherlands, "
-                "with founding partner Airopa Global")
-        html = "<p>" + text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    # "*" sends to every work address (public launch); personal addresses are
+    # always followed up by a person first, as on the India engine.
+    if em["personal"]:
+        sent, detail = False, "personal email: manual follow-up"
+    elif "*" in allowed or domain in allowed:
+        link = f"{settings.europe_site_url}?company={run['host']}"
+        subject, text, html = europe_email.build_email(payload, req.name, link)
         sent, detail = mailer.send(settings, em["email"], subject, text, html, pdf,
                                    f"Europe-Market-Assessment-{run['host']}.pdf",
                                    bcc=settings.mail_notify or None)
+    else:
+        sent, detail = False, "preview: not on the send list, follow up by hand"
     save_lead(run_id=run["id"], host=run["host"], name=req.name, email=em["email"],
               email_type="personal" if em["personal"] else "work", company=req.company,
               role=req.role or None, call_partner="yes" if req.call_partner else "no",

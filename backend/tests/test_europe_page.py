@@ -170,3 +170,19 @@ def test_competitor_names_reach_only_the_pdf(monkeypatch):
     stored = get_run(p["run_id"])["payload"]
     assert stored["_private"]["competitors"][0]["name"] == "RivalCo"
     assert len(build_pdf(stored)) > 1000 and len(build_pdf(p)) > 1000
+
+
+def test_launch_sends_to_any_work_address_and_holds_personal(monkeypatch):
+    import uuid
+    from app.api import routes_europe
+    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None: _assessment())
+    sent = []
+    monkeypatch.setattr(routes_europe.mailer, "send", lambda *a, **k: sent.append((a[1], a[2])) or (True, "ok"))
+    monkeypatch.setattr(get_settings(), "europe_mail_allow", "*")
+    c = TestClient(app)
+    p = c.post("/api/europe/score", json={"url": f"open-{uuid.uuid4().hex[:6]}.in"}).json()
+    body = {"run_id": p["run_id"], "snapshot_token": p["snapshot_token"], "name": "Asha", "company": "Weave"}
+    assert c.post("/api/europe/report", json={**body, "email": "asha@weave-textiles.in"}).json()["status"] == "sent"
+    r = c.post("/api/europe/report", json={**body, "email": "asha@gmail.com", "allow_personal": True}).json()
+    assert r["status"] == "queued"
+    assert sent == [("asha@weave-textiles.in", "Your Europe Market Assessment: Weave Ltd")]

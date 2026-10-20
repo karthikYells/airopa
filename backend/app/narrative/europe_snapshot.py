@@ -205,7 +205,7 @@ def _competitor_panel(a) -> dict | None:
          + f"with at least **{c['europe_people']:,} people** there."]
     if c.get("recent_people"):
         b.append(f"**{c['recent_people']:,}** of those people started their roles in the last 12 months: "
-                 "your competitors are hiring in Europe now.")
+                 + ("this competitor is hiring in Europe now." if n == 1 else "your competitors are hiring in Europe now."))
     if c.get("indian_in_europe"):
         k = c["indian_in_europe"]
         if n == 1:

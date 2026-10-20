@@ -180,11 +180,13 @@ class LLM:
             "for consulting, business process outsourcing and other business services. Do not "
             "list what its customers make, and do not list products it only buys. "
             "Also give: segment, a short phrase for what it sells (e.g. 'seed traceability "
-            "software'); and buyer_industries, up to 3 codes of the industries that buy from it, "
-            "chosen ONLY from the INDUSTRY CODES list below (most specific code that fits). "
+            "software'); and buyers, up to 3 industries that buy from it, each as a code chosen ONLY "
+            "from the INDUSTRY CODES list below (the most specific code for the BUYERS, not for the "
+            "company itself) with evidence, a phrase copied EXACTLY from the page that names those "
+            "buyers (e.g. 'for staffing agencies'). "
             'Reply with JSON only: {"products": [{"name": "", "evidence": "", "url": "", '
             '"hs": "", "hs_label": "", "confidence": 0.0}], "services": [{"name": "", '
-            '"evidence": "", "url": "", "code": ""}], "segment": "", "buyer_industries": [""]}'
+            '"evidence": "", "url": "", "code": ""}], "segment": "", "buyers": [{"code": "", "evidence": ""}]}'
         )
         from app.reference.nace import codes as nace_codes
         system += "\n\nINDUSTRY CODES:\n" + "\n".join(f"{c} {t}" for c, t in nace_codes().items())

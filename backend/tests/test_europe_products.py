@@ -95,3 +95,14 @@ def test_slow_site_is_cut_off_with_what_was_read(monkeypatch):
     t = _t.monotonic(); r = ws.scrape_with_deadline("slow.in", products=True, deadline_s=0.5)
     assert _t.monotonic() - t < 2 and r.reachable and r.homepage_text == "We make valves."
     assert r.product_pages == [] and "stopped after" in r.error
+
+
+def test_buyer_industries_need_the_buyers_named_on_the_page():
+    pages = [{"url": "https://hire.ai/", "text": "AI recruiting software built for staffing agencies and IT services firms."}]
+    raw = {"services": [{"name": "AI recruiting", "evidence": "AI recruiting software", "code": "SI"}],
+           "segment": "AI recruiting software",
+           "buyers": [{"code": "N78", "evidence": "for staffing agencies"},
+                      {"code": "N80-N82", "evidence": "for security firms"},       # not on the page
+                      {"code": "ZZ99", "evidence": "staffing agencies"}]}        # not a real code
+    off = verify_offering(raw, pages)
+    assert off.buyers == ["N78"]

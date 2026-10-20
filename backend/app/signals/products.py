@@ -83,7 +83,13 @@ def verify_offering(raw: dict, pages: list[dict]) -> Offering | None:
     kind = "both" if products and services else "goods" if products else "services"
     from app.reference.nace import codes as nace_codes
     valid = nace_codes()
-    buyers = [c for c in (raw.get("buyer_industries") or []) if isinstance(c, str) and c in valid][:3]
+    # A buyer industry counts only if the page names those buyers (checked like products).
+    buyers = []
+    for b in raw.get("buyers") or []:
+        if isinstance(b, dict) and b.get("code") in valid and found(str(b.get("evidence", ""))) \
+                and b["code"] not in buyers:
+            buyers.append(b["code"])
+    buyers = buyers[:3]
     seg = raw.get("segment")
     return Offering(kind=kind, products=products, services=services,
                     sector=_sector(products, services), dropped=dropped,

@@ -197,6 +197,48 @@ class LLM:
         except Exception:
             return {}
 
+    def propose_competitors(self, company: str, segment: str, lines: list[str]) -> dict:
+        """Candidates only: companies known to sell the same offering, plus
+        search keywords. Every candidate is checked against its own website by
+        the caller; nothing here is used unverified."""
+        if not self.enabled or not segment:
+            return {}
+        system = (
+            "You are a market analyst. Given a company's offering, list up to 12 companies that sell "
+            "the SAME kind of product or service to the same kind of buyer (direct competitors, any "
+            "country; include European, American and Indian ones if they exist), each with its main "
+            "website domain. Also give 3 short search keywords that describe the offering (as used to "
+            "tag companies, e.g. 'recruiting software'). Do not include the company itself. "
+            'Reply with JSON only: {"competitors": [{"name": "", "domain": ""}], "keywords": [""]}'
+        )
+        user = f"Company: {company}\nOffering: {segment}\nProduct and service lines: {'; '.join(lines[:8])}"
+        try:
+            raw = self._complete(self._settings.llm_model_small, system, user, 1200)
+            data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def check_competitors(self, segment: str, candidates: list[dict]) -> dict:
+        """For each candidate homepage text, does it sell the same kind of
+        offering? Returns {domain: evidence phrase copied from that page, or
+        null}. The caller keeps a candidate only if the phrase is on its page."""
+        if not self.enabled or not candidates:
+            return {}
+        system = (
+            "For each company below, decide from ITS OWN homepage text whether it sells the same kind "
+            f"of offering as: '{segment}'. If yes, copy a short phrase (5 to 15 words) EXACTLY from that "
+            "company's text that shows it; if no or unclear, use null. "
+            'Reply with JSON only: {"<domain>": "<phrase or null>", ...}'
+        )
+        body = "\n\n".join(f"DOMAIN {c['domain']}\n{c['text'][:1500]}" for c in candidates)
+        try:
+            raw = self._complete(self._settings.llm_model_small, system, body, 1500)
+            data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
     def choose_hs(self, items: list[dict]) -> dict:
         """Constrained choice: for each product, pick one six-digit code from the
         official options under its heading. Returns {product name: code}; the

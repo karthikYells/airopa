@@ -202,6 +202,19 @@ def build_pdf(payload: dict, recipient_name: str | None = None) -> bytes:
                                ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
         story += [t, Paragraph(_esc(scale["note"]), _S["muted"]), Spacer(1, 8)]
 
+    priv = payload.get("_private") or {}
+    named = priv.get("competitors") or []
+    if named:
+        story.append(Paragraph("Who is already selling to your European buyers", _S["h2"]))
+        story.append(Paragraph(f"Companies selling {_esc(priv.get('competitor_segment') or 'what you sell')} with "
+                               "teams in Europe today, by the number of people there on public professional "
+                               "profiles. Each was checked against its own website.", _S["muted"]))
+        for c in named:
+            story.append(Paragraph(f"<b>{_esc(c['name'])}</b> ({_esc(c['domain'])}): at least {c['europe_people']:,} people "
+                                   f"in Europe" + ("; most of its team is in India" if c.get("indian") else ""),
+                                   _S["bullet"], bulletText="•"))
+        story.append(Spacer(1, 6))
+
     evidence = payload.get("own_evidence") or []
     if evidence:
         story.append(Paragraph("What we found when we looked at your company specifically", _S["h2"]))

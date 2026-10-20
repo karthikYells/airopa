@@ -29,6 +29,11 @@ router = APIRouter()
 SURFACE = "europe"
 
 
+def _public(payload: dict) -> dict:
+    """What the page may see: everything except the private block (names)."""
+    return {k: v for k, v in payload.items() if k != "_private"}
+
+
 class ScoreRequest(BaseModel):
     url: str
 
@@ -44,14 +49,15 @@ def europe_score(req: ScoreRequest, request: Request) -> dict:
     if cached is not None:
         visits.record(request, engine="europe", event="check", company=host, run_id=cached["id"],
                       mode=cached["payload"].get("mode"), cached=True)
-        return {**cached["payload"], "run_id": cached["id"],
-                "snapshot_token": sign(cached["id"], host, cached["payload"])}
+        public = _public(cached["payload"])
+        return {**public, "run_id": cached["id"], "snapshot_token": sign(cached["id"], host, public)}
     limit(request, "europe_score", settings.public_score_limit_per_hour, 3600)
     a = europe_pipeline.run(host, settings, llm=LLM(settings))
     payload = europe_snapshot.build(a)
     run_id = save_run(host, SURFACE, payload.get("mode"), payload)
     visits.record(request, engine="europe", event="check", company=host, run_id=run_id, mode=payload.get("mode"))
-    return {**payload, "run_id": run_id, "snapshot_token": sign(run_id, host, payload)}
+    public = _public(payload)
+    return {**public, "run_id": run_id, "snapshot_token": sign(run_id, host, public)}
 
 
 class ReportRequest(BaseModel):

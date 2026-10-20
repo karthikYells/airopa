@@ -122,3 +122,51 @@ def test_industry_view_uses_latest_common_year(monkeypatch):
     v = eurostat.industry_view(["A01", "C20"])                            # C20 confidential: no values
     assert v["codes"] == ["A01"] and v["year"] == 2023 and round(v["gva"] / 1e9) == 242
     assert round(v["growth"], 3) == round((242292.3 / 201304.9) ** 0.5 - 1, 3)
+
+
+def test_competitors_need_proof_on_their_own_site(monkeypatch):
+    from app.signals import competitors as comp
+    from app.signals.products import Offering as Off
+
+    class FakeLLM:
+        enabled = True
+        def propose_competitors(self, company, segment, lines):
+            return {"competitors": [{"name": "RealRival", "domain": "realrival.com"},
+                                    {"name": "Imposter", "domain": "imposter.com"},
+                                    {"name": "Silent", "domain": "silent.com"}], "keywords": []}
+        def check_competitors(self, segment, cands):
+            return {"realrival.com": "AI recruiting platform for staffing agencies",
+                    "imposter.com": "AI recruiting platform for staffing agencies",   # not on its page
+                    "silent.com": None}
+    pages = {"realrival.com": "RealRival is the AI recruiting platform for staffing agencies. " * 10,
+             "imposter.com": "We sell garden furniture across Europe. " * 10,
+             "silent.com": "Coming soon. " * 30}
+    monkeypatch.setattr(comp, "_homepage", lambda d: pages.get(d, ""))
+    monkeypatch.setattr(comp, "_count", lambda cl, d, locs: (40, []) if locs == comp._EUROPE else (300, []) if locs == ["India"] else (400, []))
+    monkeypatch.setattr("app.signals.europe_peers._recent_europe", lambda cl, d: 12)
+    s = get_settings()
+    monkeypatch.setattr(s, "apollo_api_key", "test-key")
+    off = Off(kind="services", services=[{"code": "SI", "name": "AI recruiting"}], segment="AI recruiting software")
+    r = comp.find("fabric-test.ai", "Fabric", off, s, FakeLLM())
+    assert r["confirmed"] == 1 and r["in_europe"] == 1 and r["indian_in_europe"] == 1
+    assert r["named"] == [{"name": "RealRival", "domain": "realrival.com", "europe_people": 40, "indian": True}]
+
+
+def test_competitor_names_reach_only_the_pdf(monkeypatch):
+    import uuid
+    from app.api import routes_europe
+    from app.reports.pdf import build_pdf
+    a = _assessment()
+    a.competitors = {"in_europe": 3, "indian_in_europe": 1, "europe_people": 120, "recent_people": 30,
+                     "named": [{"name": "RivalCo", "domain": "rivalco.eu", "europe_people": 80, "indian": False}]}
+    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None: a)
+    c = TestClient(app)
+    host = f"rival-{uuid.uuid4().hex[:6]}.in"
+    p = c.post("/api/europe/score", json={"url": host}).json()
+    assert "RivalCo" not in str(p) and "_private" not in p
+    panel = next(e for e in p["own_evidence"] if e["title"] == "Your competitors are already in Europe")
+    assert "3 companies" in panel["bullets"][0] and "120 people" in panel["bullets"][0]
+    from app.data.store import get_run
+    stored = get_run(p["run_id"])["payload"]
+    assert stored["_private"]["competitors"][0]["name"] == "RivalCo"
+    assert len(build_pdf(stored)) > 1000 and len(build_pdf(p)) > 1000

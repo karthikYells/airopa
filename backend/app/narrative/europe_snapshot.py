@@ -149,6 +149,12 @@ def _summary(a, peer: dict | None = None) -> dict | None:
         body.append("You reach European buyers today without a base there.")
     elif pv == "ESTABLISHED":
         body.append("You already have a base in Europe; the question is how far to take it.")
+    c = a.competitors
+    if c and c.get("in_europe"):
+        body.insert(0 if not peer else 1,
+                    f"{c['in_europe']} companies selling what you sell already have teams in Europe"
+                    + (f", and {c['indian_in_europe']} of them run most of their work from India like you"
+                       if c.get("indian_in_europe") else "") + ".")
     if len(body) < 2:
         return None
     close = ("Every month the gap stays open, buyers sign with suppliers who are ready."
@@ -156,8 +162,29 @@ def _summary(a, peer: dict | None = None) -> dict | None:
     return {"headline": headline, "body": " ".join(body[:5]), "close": close}
 
 
+def _competitor_panel(a) -> dict | None:
+    c = a.competitors
+    if not c or not c.get("in_europe"):
+        return None
+    seg = a.offering.segment if a.offering and a.offering.segment else "what you sell"
+    b = [f"We found **{c['in_europe']} companies selling {seg}** that already have teams in Europe, "
+         f"with at least **{c['europe_people']:,} people** there."]
+    if c.get("recent_people"):
+        b.append(f"**{c['recent_people']:,}** of those people started their roles in the last 12 months: "
+                 "your competitors are hiring in Europe now.")
+    if c.get("indian_in_europe"):
+        n = c["indian_in_europe"]
+        b.append(f"**{n} of them run most of their teams from India**, the same cost base you have, "
+                 "and already sell to European buyers.")
+    b.append("Which companies they are is in your emailed report.")
+    return {"title": "Your competitors are already in Europe", "tone": "red", "bullets": b}
+
+
 def _evidence(a) -> list[dict]:
     panels = []
+    comp = _competitor_panel(a)
+    if comp:
+        panels.append(comp)
     p = a.presence
     if p:
         b = []
@@ -259,6 +286,11 @@ def build(a) -> dict:
     base["uk_note"] = a.uk_note
     base["time_to_first_order"] = a.time_range
     base["own_evidence"] = _evidence(a)
+    # Names of competitors: kept with the run on the server for the emailed
+    # PDF; the API strips "_private" before anything reaches the page.
+    if a.competitors and a.competitors.get("named"):
+        base["_private"] = {"competitors": a.competitors["named"],
+                            "competitor_segment": a.offering.segment if a.offering else None}
     base["withheld"] = WITHHELD
     base["lead_capture"] = {
         "type": "bdaas", "field": "work_email",

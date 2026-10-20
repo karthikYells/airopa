@@ -19,6 +19,7 @@ from app.config import Settings
 from app.data.records import ScoreResult
 from app.reference import europe_reference as ref
 from app.scoring import europe as scoring
+from app.signals import competitors as competitor_signals
 from app.signals import europe_peers, europe_presence
 from app.signals.products import Offering, map_offering
 
@@ -47,6 +48,7 @@ class EuropeAssessment:
     uk_note: str | None = None
     peer_cohort: dict | None = None
     buyer_view: dict | None = None
+    competitors: dict | None = None
     market: ScoreResult | None = None
     ready: ScoreResult | None = None
     time_range: dict | None = None
@@ -136,6 +138,7 @@ def run(input_url: str, settings: Settings, llm=None) -> EuropeAssessment:
         f_tar = pool.submit(wits.mfn_tariff, best["product"]["hs"]) if best and len(best["product"]["hs"]) == 6 else None
         is_services = a.offering is not None and a.offering.kind == "services"
         f_buy = pool.submit(eurostat.industry_view, a.offering.buyers) if a.offering and a.offering.buyers else None
+        f_comp = pool.submit(competitor_signals.find, domain, a.name, a.offering, settings, llm) if a.offering else None
         if is_services:
             codes = sorted({s["code"] for s in a.offering.services})
             f_cty = pool.submit(_country_rows_services, codes)
@@ -150,6 +153,7 @@ def run(input_url: str, settings: Settings, llm=None) -> EuropeAssessment:
         f_rep.result()
         a.peer_cohort = f_peer.result() if f_peer else None
         a.buyer_view = f_buy.result() if f_buy else None
+        a.competitors = f_comp.result() if f_comp else None
     # Certifications named in their own annual report count as well.
     a.certs = scoring.find_certs(a.site_text + "\n" + a.report_cert_text)
     a.services = ref.services()

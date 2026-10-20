@@ -47,6 +47,27 @@ def _code(ip: str) -> str:
     return hashlib.sha256(f"{salt}:{ip}".encode()).hexdigest()[:16]
 
 
+# rdap.org redirects to the right registry but refuses some cloud addresses,
+# so the regional registries are asked directly when it gives nothing. ARIN
+# redirects addresses it does not hold to the registry that does.
+_RDAP = ["https://rdap.org/ip/{ip}", "https://rdap.arin.net/registry/ip/{ip}",
+         "https://rdap.db.ripe.net/ip/{ip}", "https://rdap.apnic.net/ip/{ip}"]
+
+
+def _rdap(ip: str) -> dict:
+    for url in _RDAP:
+        try:
+            r = httpx.get(url.format(ip=ip), timeout=6, follow_redirects=True,
+                          headers={"Accept": "application/rdap+json"})
+            if r.status_code == 200:
+                d = r.json()
+                if d.get("country") or d.get("name"):
+                    return d
+        except Exception:
+            continue
+    return {}
+
+
 def lookup_network(ip: str) -> dict:
     """Owner and country of the IP's network (RDAP, free) and its reverse-DNS name."""
     out: dict = {}
@@ -56,8 +77,7 @@ def lookup_network(ip: str) -> dict:
     except ValueError:
         return out
     try:
-        r = httpx.get(f"https://rdap.org/ip/{ip}", timeout=8, follow_redirects=True)
-        d = r.json() if r.status_code == 200 else {}
+        d = _rdap(ip)
         out["network_name"] = d.get("name")
         out["country"] = d.get("country")
         for e in d.get("entities") or []:
@@ -116,7 +136,7 @@ def fill_missing(rows: list[dict], most: int = 40) -> None:
     throttles the CPU once a response is sent, so the background lookup in
     `record` often never finishes; the dashboard completes it on opening.
     Lookups are cached per address, so each address is asked once."""
-    todo = [r for r in rows if "country" not in r and (r.get("ip") or r.get("ip_prefix"))][:most]
+    todo = [r for r in rows if not (r.get("country") or r.get("network_name")) and (r.get("ip") or r.get("ip_prefix"))][:most]
     if not todo:
         return
 
@@ -125,10 +145,10 @@ def fill_missing(rows: list[dict], most: int = 40) -> None:
 
     def one(ip: str) -> dict:
         hit = kv.get("ip_networks", ip)
-        if hit is None:
+        if not hit:
             hit = lookup_network(ip)
-            hit.setdefault("country", None)          # mark as looked up, even when nothing came back
-            kv.put("ip_networks", ip, hit)
+            if hit.get("country") or hit.get("network_name"):   # keep answers; a failed lookup is retried
+                kv.put("ip_networks", ip, hit)
         return hit
 
     from concurrent.futures import ThreadPoolExecutor
@@ -136,6 +156,8 @@ def fill_missing(rows: list[dict], most: int = 40) -> None:
     with ThreadPoolExecutor(max_workers=8) as pool:
         found = dict(zip(ips, pool.map(one, ips)))
     for r in todo:
+        if not (found[addr(r)].get("country") or found[addr(r)].get("network_name")):
+            continue
         r.update(found[addr(r)])
         kv.put(COLLECTION, r["_id"], {k: v for k, v in r.items() if k != "_id"})
 

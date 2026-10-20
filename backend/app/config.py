@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     # Europe preview: the report PDF is emailed only to these domains; other
     # requests are kept as leads and followed up by hand.
     europe_mail_allow: str = "airopa.co"
+    # Visit log (app/api/visits.py). The full IP is stored only once the privacy
+    # notice says so; until then the network (last part removed) is kept.
+    visit_full_ip: bool = False
+    visit_retention_days: int = 180
+    # Key for the private visit dashboard (/api/internal/visits?key=...). Empty = off.
+    dashboard_key: str = ""
     # Show the peer count publicly. Off until peer quality is reviewed (2026-10-17):
     # a loose industry match produced fashion brands as peers of a components maker.
     publish_peer_headline: bool = False

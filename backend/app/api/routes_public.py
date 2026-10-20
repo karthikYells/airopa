@@ -12,6 +12,7 @@ from app.adapters.llm import LLM
 from app.api.abuse import is_blocklisted, validate
 from app.api.email_check import check_email
 from app.api.ratelimit import limit
+from app.api import visits
 from app.api.signing import sign, verify
 from app.config import get_settings
 from app.data.store import get_run, latest_public_run, save_lead, save_run
@@ -42,6 +43,8 @@ def score_company(req: ScoreRequest, request: Request) -> dict:
         # Repeated lookups of the same company cost nothing (Section 9.7).
         cached = latest_public_run(host, settings.snapshot_cache_hours)
         if cached is not None:
+            visits.record(request, engine="india", event="check", company=host, run_id=cached["id"],
+                          mode=cached["payload"].get("mode"), cached=True)
             return {**cached["payload"], "run_id": cached["id"],
                     "snapshot_token": sign(cached["id"], host, cached["payload"])}
         limit(request, "score", settings.public_score_limit_per_hour, 3600)
@@ -70,6 +73,7 @@ def score_company(req: ScoreRequest, request: Request) -> dict:
     assert_public_safe(payload, forbidden_names=forbidden)
 
     run_id = save_run(host, "public", mode.value, payload)
+    visits.record(request, engine="india", event="check", company=host, run_id=run_id, mode=mode.value)
     return {**payload, "run_id": run_id, "snapshot_token": sign(run_id, host, payload)}
 
 
@@ -128,4 +132,6 @@ def request_report(req: ReportRequest, request: Request) -> dict:
               email_type="personal" if em["personal"] else "work", company=req.company,
               role=req.role or None, call_partner="yes" if req.call_partner else "no",
               status="sent" if sent else "queued", detail=detail)
+    visits.record(request, engine="india", event="report", company=run["host"], run_id=run["id"],
+                  email_domain=em["email"].rsplit("@", 1)[-1].lower())
     return {"status": "sent" if sent else "queued"}

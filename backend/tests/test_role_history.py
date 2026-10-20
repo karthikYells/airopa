@@ -53,7 +53,7 @@ def test_recheck_task_needs_the_key(monkeypatch):
     monkeypatch.setattr(get_settings(), "task_key", "s3cret-test-key")
     assert client.post("/api/tasks/recheck-roles", headers={"X-Task-Key": "wrong"}).status_code == 404
     r = client.post("/api/tasks/recheck-roles", headers={"X-Task-Key": "s3cret-test-key"})
-    assert r.status_code == 200 and r.json() == {"due": 0, "checked": []}
+    assert r.status_code == 200 and r.json() == {"due": 0, "checked": [], "visits_pruned": 0}
 
 
 def test_recheck_deletes_year_old_history(monkeypatch):

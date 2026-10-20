@@ -17,6 +17,7 @@ from app.adapters.llm import LLM
 from app.api.abuse import validate
 from app.api.email_check import check_email
 from app.api.ratelimit import limit
+from app.api import visits
 from app.api.signing import sign, verify
 from app.config import get_settings
 from app.data.store import get_run, latest_public_run, save_lead, save_run
@@ -41,12 +42,15 @@ def europe_score(req: ScoreRequest, request: Request) -> dict:
                 "message": "Enter your company website, for example yourcompany.in."}
     cached = latest_public_run(host, settings.snapshot_cache_hours, surface=SURFACE)
     if cached is not None:
+        visits.record(request, engine="europe", event="check", company=host, run_id=cached["id"],
+                      mode=cached["payload"].get("mode"), cached=True)
         return {**cached["payload"], "run_id": cached["id"],
                 "snapshot_token": sign(cached["id"], host, cached["payload"])}
     limit(request, "europe_score", settings.public_score_limit_per_hour, 3600)
     a = europe_pipeline.run(host, settings, llm=LLM(settings))
     payload = europe_snapshot.build(a)
     run_id = save_run(host, SURFACE, payload.get("mode"), payload)
+    visits.record(request, engine="europe", event="check", company=host, run_id=run_id, mode=payload.get("mode"))
     return {**payload, "run_id": run_id, "snapshot_token": sign(run_id, host, payload)}
 
 
@@ -100,4 +104,6 @@ def europe_report(req: ReportRequest, request: Request) -> dict:
               email_type="personal" if em["personal"] else "work", company=req.company,
               role=req.role or None, call_partner="yes" if req.call_partner else "no",
               status="sent" if sent else "queued", detail=detail)
+    visits.record(request, engine="europe", event="report", company=run["host"], run_id=run["id"],
+                  email_domain=domain)
     return {"status": "sent" if sent else "queued"}

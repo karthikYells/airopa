@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_europe, routes_internal, routes_public, routes_tasks
+from app.api import routes_europe, routes_internal, routes_public, routes_tasks, routes_visits
 from app.config import get_settings
 from app.data.store import init_db
 
@@ -35,6 +35,7 @@ app.include_router(routes_public.router, prefix="/api", tags=["public"])
 app.include_router(routes_internal.router, prefix="/api", tags=["internal"])
 app.include_router(routes_tasks.router, prefix="/api", tags=["tasks"])
 app.include_router(routes_europe.router, prefix="/api", tags=["europe"])
+app.include_router(routes_visits.router, prefix="/api", tags=["visits"])
 
 # Europe Market Assessment preview page, served by the engine itself until the
 # accessindia.nl page goes live (built from frontend/ with VITE_ENGINE=europe).

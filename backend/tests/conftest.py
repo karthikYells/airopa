@@ -17,3 +17,10 @@ def _no_paid_apollo(monkeypatch):
     """Tests never call Apollo: company lookups and peer searches cost credits,
     and with an empty test store nothing would ever come from the cache."""
     monkeypatch.setattr(get_settings(), "apollo_api_key", "")
+
+
+@pytest.fixture(autouse=True)
+def _no_network_lookups(monkeypatch):
+    """Visit logging looks up the visitor's network in the background; tests never call out."""
+    from app.api import visits
+    monkeypatch.setattr(visits, "lookup_network", lambda ip: {"network_owner": "Test Network BV", "country": "NL"})

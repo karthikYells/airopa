@@ -108,7 +108,36 @@ def record(request: Request, *, engine: str, event: str, company: str | None,
 
 def recent(limit: int = 500) -> list[dict]:
     ids = sorted(kv.keys(COLLECTION, limit=5000), reverse=True)[:limit]
-    return [d for d in (kv.get(COLLECTION, i) for i in ids) if d]
+    return [{**d, "_id": i} for i, d in ((i, kv.get(COLLECTION, i)) for i in ids) if d]
+
+
+def fill_missing(rows: list[dict], most: int = 40) -> None:
+    """Look up network and country for visits that have none yet. Cloud Run
+    throttles the CPU once a response is sent, so the background lookup in
+    `record` often never finishes; the dashboard completes it on opening.
+    Lookups are cached per address, so each address is asked once."""
+    todo = [r for r in rows if "country" not in r and (r.get("ip") or r.get("ip_prefix"))][:most]
+    if not todo:
+        return
+
+    def addr(r: dict) -> str:
+        return r.get("ip") or str(ipaddress.ip_network(r["ip_prefix"], strict=False).network_address)
+
+    def one(ip: str) -> dict:
+        hit = kv.get("ip_networks", ip)
+        if hit is None:
+            hit = lookup_network(ip)
+            hit.setdefault("country", None)          # mark as looked up, even when nothing came back
+            kv.put("ip_networks", ip, hit)
+        return hit
+
+    from concurrent.futures import ThreadPoolExecutor
+    ips = sorted({addr(r) for r in todo})
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        found = dict(zip(ips, pool.map(one, ips)))
+    for r in todo:
+        r.update(found[addr(r)])
+        kv.put(COLLECTION, r["_id"], {k: v for k, v in r.items() if k != "_id"})
 
 
 def prune() -> int:

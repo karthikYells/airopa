@@ -55,3 +55,18 @@ def test_old_visits_are_pruned(monkeypatch):
     kv.put(visits.COLLECTION, "20200101T000000-aaaaaa", {"at": "2020-01-01T00:00:00+00:00", "ts": 1577836800})
     kv.put(visits.COLLECTION, "29990101T000000-bbbbbb", {"at": "2999-01-01T00:00:00+00:00", "ts": time.time()})
     assert visits.prune() == 1 and kv.get(visits.COLLECTION, "29990101T000000-bbbbbb")
+
+
+def test_dashboard_fills_lookups_the_background_thread_missed(monkeypatch):
+    """Cloud Run throttles CPU after the response, so some visits are saved without
+    network or country; opening the dashboard completes them, once per address."""
+    asked = []
+    monkeypatch.setattr(visits, "lookup_network", lambda ip: asked.append(ip) or {"network_name": "Odido-Netherlands", "country": "NL"})
+    for i in range(3):
+        kv.put(visits.COLLECTION, f"20991231T00000{i}-fill", {"at": "2099-12-31T00:00:00+00:00", "ts": time.time(),
+               "engine": "europe", "event": "check", "company_checked": "fill.in", "ip": None,
+               "ip_prefix": "178.231.114.0/24", "visitor": "x" * 16})
+    rows = [r for r in visits.recent() if r["_id"].endswith("-fill")]
+    visits.fill_missing(rows)
+    assert asked == ["178.231.114.0"]
+    assert all(kv.get(visits.COLLECTION, r["_id"])["country"] == "NL" for r in rows)

@@ -26,21 +26,22 @@ def _authorised(key: str) -> None:
 
 
 def _who(v: dict) -> str:
-    owner = v.get("network_owner") or v.get("network_name") or ""
-    host = v.get("hostname") or ""
-    return " · ".join(x for x in (owner, host) if x)
+    parts = [v.get("network_owner"), v.get("network_name"), v.get("hostname")]
+    return " · ".join(dict.fromkeys(x for x in parts if x))
 
 
 @router.get("/internal/visits", response_class=HTMLResponse)
 def dashboard(key: str = "") -> HTMLResponse:
     _authorised(key)
     rows = visits.recent(500)
+    visits.fill_missing(rows)
     now = datetime.now(timezone.utc)
     week = [r for r in rows if datetime.fromisoformat(r["at"]) >= now - timedelta(days=7)]
     checks = [r for r in rows if r.get("event") == "check"]
     reports = [r for r in rows if r.get("event") == "report"]
     top_companies = Counter(r.get("company_checked") for r in checks if r.get("company_checked")).most_common(10)
-    top_networks = Counter(r.get("network_owner") for r in rows if r.get("network_owner")).most_common(10)
+    top_networks = Counter(r.get("network_name") or r.get("network_owner") for r in rows
+                           if r.get("network_name") or r.get("network_owner")).most_common(10)
     countries = Counter(r.get("country") for r in rows if r.get("country")).most_common(10)
 
     def li(items):

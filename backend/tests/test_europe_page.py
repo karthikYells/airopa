@@ -25,7 +25,7 @@ def _assessment(certs=(), verdict="EXPORTING", text="") -> EuropeAssessment:
     a.demand = [{"product": TOWELS, "view": VIEW, "tariff": {"rate": 12.0, "year": "2023", "hs": "630260"}}]
     a.presence = EuropePresence(verdict=verdict, reason="Some European activity.", europe_people=4,
                                 by_country={"DE": 3, "UK": 1}, commercial=2)
-    a.certs, a.site_text = list(certs), text
+    a.certs, a.site_text = list(certs), text + " " + "Weave Ltd makes cotton towels for hotels and retailers. " * 12
     a.services = ref.services()
     a.org = {"employees": 1200, "city": "Surat"}
     a.market = scoring.market_opportunity(a)
@@ -279,3 +279,16 @@ def test_leads_are_kept_in_the_durable_store():
               email_type="work", company="Keep", role=None, call_partner="no", status="sent", detail="ok")
     got = [l for l in recent_leads() if l.get("host") == "keep.in"]
     assert got and got[0]["engine"] == "europe" and got[0]["email"] == "asha@keep.in"
+
+
+def test_unread_site_is_not_resolved_not_weak():
+    """KPIT case: the site needs JavaScript, so we saw almost nothing. Missing
+    certifications or languages are then unknown, not a weakness."""
+    a = _assessment()
+    a.site_text, a.certs = "Loading...", []           # a JavaScript-only page
+    r = scoring.readiness(a)
+    dims = {d.name: d for d in r.dimensions}
+    for name in ("Certification and compliance", "Regulatory exposure handled", "Localisation and commercial readiness"):
+        assert dims[name].points == 0 and dims[name].basis.startswith("Not resolved")
+    a.ready = r
+    assert "certification" not in scoring.time_to_first_order(a, r)["basis"]

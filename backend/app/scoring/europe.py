@@ -238,13 +238,26 @@ def _join(items: list[str]) -> str:
 
 
 # --- Score B: Europe Readiness ----------------------------------------------------------
+def site_read(a) -> bool:
+    """Did we actually read their website? A site that loads but needs
+    JavaScript to show anything gives almost no text: what we did not see
+    is "not resolved", never a weakness."""
+    return bool(a.reachable) and len((a.site_text or "").strip()) >= 500
+
+
+_NOT_READ = "Not resolved: we could not read your website, so we could not check this."
+
+
 def readiness(a) -> ScoreResult:
     sector = a.offering.sector if a.offering else None
     text = a.site_text or ""
     found = set(a.certs)
+    read = site_read(a)
     dims = []
     req = REQUIRED.get(sector or "", [])
-    if req:
+    if req and not read and not found and not getattr(a, "report_cert_text", ""):
+        dims.append(DimensionScore("Certification and compliance", 0, 30, _NOT_READ))
+    elif req:
         have = [c for c in req if c in found]
         miss = [c for c in req if c not in found]
         pts = max(4, round(30 * len(have) / len(req)))
@@ -256,7 +269,9 @@ def readiness(a) -> ScoreResult:
     else:
         dims.append(DimensionScore("Certification and compliance", 0, 30, "Not resolved: your products are outside the sectors this version covers."))
     regs = regs_for(a)
-    if regs:
+    if regs and not read:
+        dims.append(DimensionScore("Regulatory exposure handled", 0, 15, _NOT_READ))
+    elif regs:
         handled = [r for r in regs if re.search(REG_EVIDENCE[r], text, re.I)]
         pts = max(3, round(15 * len(handled) / len(regs)))
         dims.append(DimensionScore("Regulatory exposure handled", pts, 15,
@@ -285,9 +300,12 @@ def readiness(a) -> ScoreResult:
     langs = [l for l in (p.languages if p else []) if l in _EU_LANGS]
     eu_phone = bool(re.search(r"\+(31|32|33|34|39|44|46|48|49|420)[\s\d]{6,}", text))
     loc = min(10, 2 * len(langs) + (2 if eu_phone else 0) + (2 if p and p.eu_domains else 0))
-    dims.append(DimensionScore("Localisation and commercial readiness", loc, 10,
-        (f"Your site is available in {', '.join(sorted(langs))}" if langs else "Your site is in English only")
-        + (", with a European phone number." if eu_phone else ".")))
+    if read:
+        dims.append(DimensionScore("Localisation and commercial readiness", loc, 10,
+            (f"Your site is available in {', '.join(sorted(langs))}" if langs else "Your site is in English only")
+            + (", with a European phone number." if eu_phone else ".")))
+    else:
+        dims.append(DimensionScore("Localisation and commercial readiness", 0, 10, _NOT_READ))
     people = (a.org or {}).get("employees") or (p.total_people if p else 0)
     pts = 10 if people >= 5000 else 8 if people >= 1000 else 6 if people >= 250 else 4 if people >= 50 else (2 if people else 0)
     dims.append(DimensionScore("Scale to deliver", pts, 10,
@@ -303,7 +321,7 @@ def time_to_first_order(a, ready: ScoreResult) -> dict:
     services = a.offering is not None and a.offering.kind == "services"
     base = {"ESTABLISHED": (3, 6), "EXPORTING": (6, 9), "GREENFIELD": (9, 15) if not services else (6, 12)}.get(pv, (9, 18))
     cert = next((d for d in ready.dimensions if d.name == "Certification and compliance"), None)
-    gap = cert is not None and cert.points < 15
+    gap = cert is not None and 0 < cert.points < 15         # an unread site is no known gap
     lo, hi = base[0] + (3 if gap else 0), base[1] + (6 if gap else 0)
     return {"range": f"{lo} to {hi} months",
             "basis": ("you already sell in Europe" if pv in ("ESTABLISHED", "EXPORTING") else "starting without a European base")

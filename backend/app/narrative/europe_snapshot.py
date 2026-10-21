@@ -170,7 +170,7 @@ def _summary(a, peer: dict | None = None) -> dict | None:
         body.append(f"You sell {a.offering.segment or 'your services'} to an industry that produces "
                     f"{eur_range(bv['gva'])} of value a year in Europe.")
     cert = next((d for d in a.ready.dimensions if d.name == "Certification and compliance"), None)
-    if cert and cert.points < 15:
+    if cert and 0 < cert.points < 15:
         body.append("The certifications European buyers check first are not visible on your website.")
     pv = a.presence.verdict if a.presence else ""
     if pv == "GREENFIELD":

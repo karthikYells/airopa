@@ -238,7 +238,7 @@ function ProductsForm({ initial, onSubmit, prominent = false }: {
           className="rounded-md bg-orange px-5 py-2.5 text-[15px] font-semibold text-white disabled:opacity-40">
           Assess these products
         </button>
-        <span className="text-[13px] text-mute">We match them to official EU trade codes. Takes about a minute.</span>
+        <span className="text-[13px] text-mute">We match them to official EU trade codes and the industries that buy them. Takes about a minute.</span>
       </div>
     </form>
   );
@@ -246,7 +246,7 @@ function ProductsForm({ initial, onSubmit, prominent = false }: {
     return (
       <section className="rounded-panel border border-line border-t-4 border-t-orange bg-white p-6">
         <h3 className="text-[18px] font-bold text-ink">Tell us what you sell</h3>
-        <p className="mb-4 mt-1 text-[14.5px] text-mute">Name your two or three main products or services, in your own words.</p>
+        <p className="mb-4 mt-1 text-[14.5px] text-mute">Name your two or three main products or services, in your own words. Say who buys them if you can, for example "embedded software for car makers".</p>
         {form}
       </section>
     );

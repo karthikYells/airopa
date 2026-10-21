@@ -273,8 +273,10 @@ def _evidence(a) -> list[dict]:
     if reg and reg.points > 0:
         c.append(reg.basis)
     if a.offering and a.offering.products:
-        c.append("We matched your products to: " + "; ".join(
-            f"**{pr['name']}** (HS {pr['hs']})" for pr in a.offering.products[:3]) + ". Tell us if a match is wrong.")
+        told = getattr(a, "offering_source", None) == "visitor"
+        c.append(("From the products you told us, we matched: " if told else "We matched your products to: ")
+                 + "; ".join(f"**{pr['name']}** (HS {pr['hs']})" for pr in a.offering.products[:3])
+                 + (". You can change them below." if told else ". Tell us if a match is wrong."))
     panels.append({"title": "What European buyers will check", "tone": "red", "bullets": c})
     return panels
 
@@ -282,6 +284,27 @@ def _evidence(a) -> list[dict]:
 def ref_name(code: str) -> str:
     from app.signals.europe_presence import COUNTRIES
     return COUNTRIES.get(code, code)
+
+
+def preview(stage: str, a) -> dict:
+    """What the page shows while the rest of the check runs. Same rules as the
+    full page: ranges only, nothing unverified, no third-party names."""
+    out: dict = {"stage": stage, "company": _company(a)}
+    if stage == "products":
+        if a.offering is None:
+            out["products"] = []
+        else:
+            told = getattr(a, "offering_source", None) == "visitor"
+            out["products_source"] = "visitor" if told else "site"
+            out["products"] = [
+                {"name": d["product"]["name"],
+                 "demand": (f"{eur_range(d['view']['extra_eu'])} a year imported from outside the EU"
+                            if d["view"] and d["view"].get("extra_eu") else None)}
+                for d in a.demand]
+            if not a.demand and a.offering.services:
+                out["products"] = [{"name": s["name"], "demand": None} for s in a.offering.services[:3]]
+            out["segment"] = a.offering.segment
+    return out
 
 
 def build(a) -> dict:
@@ -294,7 +317,11 @@ def build(a) -> dict:
                        "it. Ranges are indicative and are not an offer or a quotation. Nothing here is a statement "
                        "about the conduct of any named third party."),
     }
-    if not a.reachable and not (a.org or a.presence and a.presence.europe_people):
+    if a.offering:
+        base["products_named"] = ([p["name"] for p in a.offering.products[:3]]
+                                  or [s["name"] for s in a.offering.services[:3]])
+        base["products_source"] = getattr(a, "offering_source", None) or "site"
+    if a.offering is None and not a.reachable and not (a.org or a.presence and a.presence.europe_people):
         base["mode"] = "NOT_READ"
         base["message"] = ("We could not read your website" + (" (it blocks automated readers)." if a.site_note and "blocked" in a.site_note else ".")
                            + " Tell us what you sell and we will complete the assessment.")

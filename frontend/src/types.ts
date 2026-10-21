@@ -70,6 +70,15 @@ export interface Company {
   signals_source?: string | null;
 }
 
+/** A Europe check in progress: what is known so far. */
+export interface EuropeProgress {
+  stage: "company" | "products";
+  company?: Company;
+  products?: { name: string; demand: string | null }[];
+  products_source?: "site" | "visitor";
+  segment?: string | null;
+}
+
 export interface Snapshot {
   run_id?: string;
   snapshot_token?: string; // signed copy, so the report works after an engine restart
@@ -89,6 +98,8 @@ export interface Snapshot {
   countries?: { code: string; name: string; why: string }[];
   uk_note?: string | null;
   time_to_first_order?: { range: string; basis: string; note: string } | null;
+  products_named?: string[];          // what we matched, to prefill a correction
+  products_source?: "site" | "visitor";
   // The short version: a sharp summary built only from facts on the page.
   summary?: { headline: string; body: string; close: string } | null;
   market?: Market | null;

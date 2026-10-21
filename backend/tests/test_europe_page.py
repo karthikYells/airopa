@@ -70,7 +70,7 @@ def test_payload_has_the_page_blocks_and_no_unverified_claims():
 def test_route_caches_and_preview_mail_goes_only_to_the_allow_list(monkeypatch):
     from app.api import routes_europe
     calls = []
-    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None: calls.append(host) or _assessment())
+    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None, **k: calls.append(host) or _assessment())
     sent = []
     monkeypatch.setattr(routes_europe.mailer, "send", lambda *a, **k: sent.append(a[1]) or (True, "ok"))
     import uuid
@@ -159,7 +159,7 @@ def test_competitor_names_reach_only_the_pdf(monkeypatch):
     a = _assessment()
     a.competitors = {"in_europe": 3, "indian_in_europe": 1, "europe_people": 120, "recent_people": 30, "confirmed": 8,
                      "named": [{"name": "RivalCo", "domain": "rivalco.eu", "europe_people": 80, "indian": False}]}
-    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None: a)
+    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None, **k: a)
     c = TestClient(app)
     host = f"rival-{uuid.uuid4().hex[:6]}.in"
     p = c.post("/api/europe/score", json={"url": host}).json()
@@ -175,7 +175,7 @@ def test_competitor_names_reach_only_the_pdf(monkeypatch):
 def test_launch_sends_to_any_work_address_and_holds_personal(monkeypatch):
     import uuid
     from app.api import routes_europe
-    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None: _assessment())
+    monkeypatch.setattr(routes_europe.europe_pipeline, "run", lambda host, s, llm=None, **k: _assessment())
     sent = []
     monkeypatch.setattr(routes_europe.mailer, "send", lambda *a, **k: sent.append((a[1], a[2])) or (True, "ok"))
     monkeypatch.setattr(get_settings(), "europe_mail_allow", "*")
@@ -207,3 +207,75 @@ def test_one_competitor_in_europe_is_not_headlined():
     p = europe_snapshot.build(a)
     assert p["peer_headline"]["with_centre"] == 3 and p["peer_headline"]["total"] == 6   # known-size base only
     assert p["summary"]["headline"].startswith("Your competitors are already selling in Europe")
+
+
+def test_product_match_is_locked_and_a_visitor_can_correct_it(monkeypatch):
+    """Same company, same products on every visit; typed products replace the lock."""
+    import uuid
+    from app.pipeline import europe as pipe
+    from app.signals import products as prod
+    calls = []
+
+    class FakeLLM:
+        enabled = True
+        def map_offering(self, company, pages):
+            calls.append(pages[0]["url"])
+            text = pages[0]["text"]
+            name = "Hand tools" if "visitor" == pages[0]["url"] else "Towels"
+            ev = "hand tools" if name == "Hand tools" else "towels"
+            hs = "8205" if name == "Hand tools" else "6302"
+            return {"products": [{"name": name, "evidence": ev, "hs": hs, "confidence": 0.9}]} if ev in text.lower() else {}
+        def choose_hs(self, items):
+            return {}
+
+    class Scrape:
+        reachable, resolved_host, pages_fetched = True, "w.in", ["https://w.in/"]
+        homepage_text, product_pages = "We weave towels for hotels. " * 5, []
+
+    dom = f"lock-{uuid.uuid4().hex[:6]}.in"
+    a = pipe.EuropeAssessment(input_url=dom, domain=dom, name="Weave")
+    first = pipe._offering(a, Scrape(), FakeLLM(), None)
+    again = pipe._offering(a, Scrape(), FakeLLM(), None)
+    assert first.products[0]["name"] == again.products[0]["name"] == "Towels"
+    assert calls == ["https://w.in/"] and a.offering_source == "site"          # second visit used the lock
+    fixed = pipe._offering(a, Scrape(), FakeLLM(), ["Hand tools"])
+    assert fixed.products[0]["hs"] == "8205" and a.offering_source == "visitor"
+    assert prod.locked_offering(dom)[1] == "visitor"
+    assert prod.offering_from_names("Weave", ["   "], FakeLLM()) is None
+
+
+def test_stream_sends_stages_then_the_page(monkeypatch):
+    import json, uuid
+    from app.api import routes_europe
+
+    def fake_run(host, s, llm=None, products=None, on_stage=None):
+        a = _assessment()
+        on_stage("company", a)
+        on_stage("products", a)
+        return a
+    monkeypatch.setattr(routes_europe.europe_pipeline, "run", fake_run)
+    r = TestClient(app).post("/api/europe/score/stream", json={"url": f"st-{uuid.uuid4().hex[:6]}.in"})
+    items = [json.loads(l) for l in r.text.splitlines() if l.strip()]
+    assert [i["stage"] for i in items] == ["company", "products", "done"]
+    assert items[0]["company"]["name"] == "Weave Ltd"
+    assert items[1]["products"][0]["name"] == "Towels" and "a year imported" in items[1]["products"][0]["demand"]
+    done = items[2]["payload"]
+    assert done["mode"] == "STANDARD" and done["run_id"] and "_private" not in done
+    assert done["products_named"] == ["Towels"]
+
+
+def test_unreadable_site_is_scored_from_typed_products():
+    a = _assessment()
+    a.reachable, a.org, a.presence = False, None, None
+    a.offering_source = "visitor"
+    p = europe_snapshot.build(a)
+    assert p["mode"] == "STANDARD" and p["products_source"] == "visitor"
+    assert any("From the products you told us" in b for e in p["own_evidence"] for b in e["bullets"])
+
+
+def test_leads_are_kept_in_the_durable_store():
+    from app.data.store import recent_leads, save_lead
+    save_lead(engine="europe", run_id="r1", host="keep.in", name="Asha", email="asha@keep.in",
+              email_type="work", company="Keep", role=None, call_partner="no", status="sent", detail="ok")
+    got = [l for l in recent_leads() if l.get("host") == "keep.in"]
+    assert got and got[0]["engine"] == "europe" and got[0]["email"] == "asha@keep.in"

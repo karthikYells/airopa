@@ -147,3 +147,45 @@ def map_offering(company: str, scrape, llm) -> Offering | None:
     pages = [{"url": home, "text": scrape.homepage_text}] + list(scrape.product_pages)
     off = verify_offering(llm.map_offering(company, pages), pages)
     return refine_hs(off, llm) if off and off.products else off
+
+
+VISITOR_URL = "visitor"      # the "page" for products the company typed in itself
+
+
+def offering_from_names(company: str, names: list[str], llm) -> Offering | None:
+    """The offering from products the visitor typed, for sites we cannot read
+    or a match they correct. Their own words are the evidence, checked the same
+    way as a web page; the HS codes still come only from the official list."""
+    if llm is None or not getattr(llm, "enabled", False):
+        return None
+    clean = [re.sub(r"\s+", " ", n).strip()[:80] for n in names if n and n.strip()][:5]
+    if not clean:
+        return None
+    pages = [{"url": VISITOR_URL, "text": "Our main products and services: " + "; ".join(clean) + "."}]
+    off = verify_offering(llm.map_offering(company, pages), pages)
+    return refine_hs(off, llm) if off and off.products else off
+
+
+# A company's product match is kept for 90 days, so every visit shows the same
+# figures; a correction by the visitor replaces it.
+_LOCK_DAYS = 90
+
+
+def locked_offering(domain: str) -> tuple[Offering | None, str | None]:
+    """(offering, source) from the lock, or (None, None)."""
+    import time
+    from app.data import kv
+    d = kv.get("eu_offering", domain)
+    if not d or time.time() - d.get("at", 0) > _LOCK_DAYS * 86400:
+        return None, None
+    try:
+        return Offering(**d["offering"]), d.get("source")
+    except (TypeError, KeyError):
+        return None, None
+
+
+def lock_offering(domain: str, off: Offering, source: str) -> None:
+    import time
+    from dataclasses import asdict
+    from app.data import kv
+    kv.put("eu_offering", domain, {"offering": asdict(off), "source": source, "at": time.time()})

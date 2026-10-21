@@ -44,6 +44,16 @@ def dashboard(key: str = "") -> HTMLResponse:
                            if r.get("network_name") or r.get("network_owner")).most_common(10)
     countries = Counter(r.get("country") for r in rows if r.get("country")).most_common(10)
 
+    from app.data.store import recent_leads
+    leads = recent_leads(200)
+    lead_rows = "".join(
+        f"<tr><td>{escape((l.get('at') or '')[:16].replace('T', ' '))}</td><td>{escape(l.get('engine') or '')}</td>"
+        f"<td>{escape(l.get('name') or '')}</td><td>{escape(l.get('email') or '')}</td>"
+        f"<td>{escape(l.get('company') or '')}</td><td>{escape(l.get('role') or '')}</td>"
+        f"<td>{escape(l.get('host') or '')}</td><td>{escape(l.get('call_partner') or '')}</td>"
+        f"<td>{escape(l.get('status') or '')}</td><td>{escape((l.get('detail') or '')[:50])}</td></tr>"
+        for l in leads) or "<tr><td colspan='10'>None yet. Requests made before 21 Oct 2026 are in Netlify Forms.</td></tr>"
+
     def li(items):
         return "".join(f"<li><b>{escape(str(k))}</b> <span>{n}</span></li>" for k, n in items) or "<li>None yet</li>"
 
@@ -57,7 +67,7 @@ def dashboard(key: str = "") -> HTMLResponse:
         f"<td>{escape((r.get('referer') or '')[:60])}</td><td>{escape((r.get('user_agent') or '')[:40])}</td></tr>"
         for r in rows)
     html = f"""<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Engine visits</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Engine visits and leads</title>
 <style>
 body{{font:14px/1.45 "Segoe UI",system-ui,sans-serif;margin:0;background:#F7F6F3;color:#18191E}}
 header{{background:#18191E;color:#F3F2EF;padding:20px max(16px,4vw)}} h1{{margin:0;font-size:22px}}
@@ -67,7 +77,7 @@ main{{padding:20px max(16px,4vw);display:grid;gap:20px}} .cards{{display:grid;gr
 .wrap{{overflow-x:auto;background:#fff;border:1px solid #E3E1DB;border-radius:10px}}
 table{{border-collapse:collapse;width:100%;font-size:13px}} th,td{{text-align:left;padding:7px 10px;border-bottom:1px solid #E3E1DB;white-space:nowrap}}
 th{{background:#F7F6F3;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5C5E66}} .mono{{font-family:Consolas,monospace}}
-</style></head><body><header><h1>Engine visits</h1><div>India Market Assessment and Europe Market Assessment · last {len(rows)} events</div></header>
+</style></head><body><header><h1>Engine visits and leads</h1><div>India Market Assessment and Europe Market Assessment · last {len(rows)} events</div></header>
 <main><div class="cards">
 <div class="card"><h2>Checks, last 7 days</h2><div class="big">{sum(1 for r in week if r.get('event') == 'check')}</div></div>
 <div class="card"><h2>Report requests, last 7 days</h2><div class="big">{sum(1 for r in week if r.get('event') == 'report')}</div></div>
@@ -78,6 +88,9 @@ th{{background:#F7F6F3;font-size:11px;text-transform:uppercase;letter-spacing:.0
 <div class="card"><h2>Visitor networks</h2><ul>{li(top_networks)}</ul></div>
 <div class="card"><h2>Countries</h2><ul>{li(countries)}</ul></div>
 </div>
+<h2 style="margin:8px 0 0;font-size:18px">Report requests</h2>
+<div class="wrap"><table><tr><th>Time (UTC)</th><th>Engine</th><th>Name</th><th>Email</th><th>Company</th><th>Role</th><th>Website checked</th><th>Wants a call</th><th>Status</th><th>Note</th></tr>{lead_rows}</table></div>
+<h2 style="margin:8px 0 0;font-size:18px">Visits</h2>
 <div class="wrap"><table><tr><th>Time (UTC)</th><th>Engine</th><th>Event</th><th>Company checked</th><th>Email domain</th>
 <th>Visitor network</th><th>Country</th><th>IP</th><th>Visitor code</th><th>Came from</th><th>Browser</th></tr>{table}</table></div>
 <p style="color:#5C5E66;font-size:12px">Network owner: the company on corporate networks, the internet provider at home or on mobile.

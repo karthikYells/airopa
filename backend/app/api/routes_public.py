@@ -128,7 +128,7 @@ def request_report(req: ReportRequest, request: Request) -> dict:
         sent, detail = mailer.send(settings, em["email"], subject, text, html, pdf, filename,
                                    bcc=settings.mail_notify or None)
 
-    save_lead(run_id=run["id"], host=run["host"], name=req.name, email=em["email"],
+    save_lead(engine="india", run_id=run["id"], host=run["host"], name=req.name, email=em["email"],
               email_type="personal" if em["personal"] else "work", company=req.company,
               role=req.role or None, call_partner="yes" if req.call_partner else "no",
               status="sent" if sent else "queued", detail=detail)

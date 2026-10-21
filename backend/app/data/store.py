@@ -105,11 +105,38 @@ class Lead(Base):
     detail = Column(Text, nullable=True)
 
 
-def save_lead(**fields) -> str:
+def save_lead(engine: str | None = None, **fields) -> str:
     if _Session is None:
         init_db()
     lead_id = uuid.uuid4().hex
+    now = datetime.now(timezone.utc)
     with _Session() as s:
-        s.add(Lead(id=lead_id, created_at=datetime.now(timezone.utc), **fields))
+        s.add(Lead(id=lead_id, created_at=now, **fields))
         s.commit()
+    # The server's own database is wiped on every deploy; Firestore keeps the
+    # lead. Doc id starts with the time so the dashboard can list newest first.
+    from app.data import kv
+    kv.put("leads", f"{now.strftime('%Y%m%dT%H%M%S')}-{lead_id[:8]}",
+           {"at": now.isoformat(timespec="seconds"), "ts": now.timestamp(), "id": lead_id, "engine": engine, **fields})
     return lead_id
+
+
+def recent_leads(limit: int = 200) -> list[dict]:
+    from app.data import kv
+    ids = sorted(kv.keys("leads", limit=5000), reverse=True)[:limit]
+    return [d for d in (kv.get("leads", i) for i in ids) if d]
+
+
+_LEAD_RETENTION_DAYS = 730      # privacy notice: "kept for up to 24 months", then deleted
+
+
+def prune_leads() -> int:
+    import time
+    from app.data import kv
+    cutoff, gone = time.time() - _LEAD_RETENTION_DAYS * 86400, 0
+    for i in kv.keys("leads", limit=20000):
+        d = kv.get("leads", i)
+        if d and d.get("ts", 0) < cutoff:
+            kv.delete("leads", i)
+            gone += 1
+    return gone

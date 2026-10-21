@@ -7,9 +7,14 @@ POST /api/europe/report  email the PDF; while in preview, only to the
 """
 from __future__ import annotations
 
+import json
+import logging
+import queue
+import threading
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.adapters import mailer
@@ -28,6 +33,7 @@ from app.reports.pdf import build_pdf
 
 router = APIRouter()
 SURFACE = "europe"
+log = logging.getLogger(__name__)
 
 
 def _public(payload: dict) -> dict:
@@ -37,6 +43,37 @@ def _public(payload: dict) -> dict:
 
 class ScoreRequest(BaseModel):
     url: str
+    # What the company sells, typed by the visitor when we could not read the
+    # site or they correct our match. Their own words, checked like a page.
+    products: list[str] = Field(default_factory=list, max_length=5)
+
+
+def _products(req: ScoreRequest) -> list[str]:
+    return [p.strip()[:80] for p in req.products if p and p.strip()][:5]
+
+
+def _rejected(reason: str) -> dict:
+    return {"engine": "europe", "mode": "REJECTED", "reason": reason,
+            "message": "Enter your company website, for example yourcompany.in."}
+
+
+def _cached(host: str, request: Request, settings) -> dict | None:
+    cached = latest_public_run(host, settings.snapshot_cache_hours, surface=SURFACE)
+    if cached is None:
+        return None
+    visits.record(request, engine="europe", event="check", company=host, run_id=cached["id"],
+                  mode=cached["payload"].get("mode"), cached=True)
+    public = _public(cached["payload"])
+    return {**public, "run_id": cached["id"], "snapshot_token": sign(cached["id"], host, public)}
+
+
+def _finish(host: str, a, request: Request, corrected: bool) -> dict:
+    payload = europe_snapshot.build(a)
+    run_id = save_run(host, SURFACE, payload.get("mode"), payload)
+    visits.record(request, engine="europe", event="correction" if corrected else "check", company=host,
+                  run_id=run_id, mode=payload.get("mode"))
+    public = _public(payload)
+    return {**public, "run_id": run_id, "snapshot_token": sign(run_id, host, public)}
 
 
 @router.post("/europe/score")
@@ -44,21 +81,63 @@ def europe_score(req: ScoreRequest, request: Request) -> dict:
     settings = get_settings()
     ok, host, reason = validate(req.url)
     if not ok:
-        return {"engine": "europe", "mode": "REJECTED", "reason": reason,
-                "message": "Enter your company website, for example yourcompany.in."}
-    cached = latest_public_run(host, settings.snapshot_cache_hours, surface=SURFACE)
-    if cached is not None:
-        visits.record(request, engine="europe", event="check", company=host, run_id=cached["id"],
-                      mode=cached["payload"].get("mode"), cached=True)
-        public = _public(cached["payload"])
-        return {**public, "run_id": cached["id"], "snapshot_token": sign(cached["id"], host, public)}
+        return _rejected(reason)
+    products = _products(req)
+    if not products and (hit := _cached(host, request, settings)):
+        return hit
     limit(request, "europe_score", settings.public_score_limit_per_hour, 3600)
-    a = europe_pipeline.run(host, settings, llm=LLM(settings))
-    payload = europe_snapshot.build(a)
-    run_id = save_run(host, SURFACE, payload.get("mode"), payload)
-    visits.record(request, engine="europe", event="check", company=host, run_id=run_id, mode=payload.get("mode"))
-    public = _public(payload)
-    return {**public, "run_id": run_id, "snapshot_token": sign(run_id, host, public)}
+    a = europe_pipeline.run(host, settings, llm=LLM(settings), products=products or None)
+    return _finish(host, a, request, bool(products))
+
+
+@router.post("/europe/score/stream")
+def europe_score_stream(req: ScoreRequest, request: Request) -> StreamingResponse:
+    """The same check, sent as it happens: one JSON line per finished stage
+    ("company", "products"), then "done" with the full page, or "error".
+    The open request keeps Cloud Run's CPU on for the whole run, which a
+    background job after the response would not have."""
+    settings = get_settings()
+
+    def lines(items):
+        return StreamingResponse((json.dumps(i, ensure_ascii=False) + "\n" for i in items),
+                                 media_type="application/x-ndjson")
+
+    ok, host, reason = validate(req.url)
+    if not ok:
+        return lines([{"stage": "done", "payload": _rejected(reason)}])
+    products = _products(req)
+    if not products and (hit := _cached(host, request, settings)):
+        return lines([{"stage": "done", "payload": hit}])
+    limit(request, "europe_score", settings.public_score_limit_per_hour, 3600)
+
+    q: queue.Queue = queue.Queue()
+
+    def work() -> None:
+        try:
+            a = europe_pipeline.run(host, settings, llm=LLM(settings), products=products or None,
+                                    on_stage=lambda st, a: q.put(europe_snapshot.preview(st, a)))
+            q.put({"stage": "done", "payload": _finish(host, a, request, bool(products))})
+        except Exception:
+            log.exception("europe stream failed for %s", host)
+            q.put({"stage": "error", "message": "Something went wrong while checking. Please try again."})
+        finally:
+            q.put(None)
+
+    threading.Thread(target=work, daemon=True).start()
+
+    def stream():
+        while True:
+            try:
+                item = q.get(timeout=15)
+            except queue.Empty:
+                yield "\n"                       # keeps proxies from closing a quiet connection
+                continue
+            if item is None:
+                return
+            yield json.dumps(item, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 class ReportRequest(BaseModel):
@@ -109,7 +188,7 @@ def europe_report(req: ReportRequest, request: Request) -> dict:
                                    bcc=settings.mail_notify or None)
     else:
         sent, detail = False, "preview: not on the send list, follow up by hand"
-    save_lead(run_id=run["id"], host=run["host"], name=req.name, email=em["email"],
+    save_lead(engine="europe", run_id=run["id"], host=run["host"], name=req.name, email=em["email"],
               email_type="personal" if em["personal"] else "work", company=req.company,
               role=req.role or None, call_partner="yes" if req.call_partner else "no",
               status="sent" if sent else "queued", detail=detail)

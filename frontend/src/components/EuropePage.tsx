@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { scoreEurope } from "../api";
-import type { HubCard, Snapshot } from "../types";
+import type { ReactNode } from "react";
+import { scoreEuropeStream } from "../api";
+import type { EuropeProgress, HubCard, Snapshot } from "../types";
 import {
   CompanyBar, EvidenceCard, Notice, PeerCard, ReasonedCard, ReportForm, SectionLabel, SummaryPanel, Withheld,
 } from "./PublicPage";
@@ -12,6 +13,7 @@ export function EuropePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [domain, setDomain] = useState("");
+  const [progress, setProgress] = useState<EuropeProgress | null>(null);
 
   useEffect(() => {
     const shared = companyFromUrl();
@@ -19,18 +21,20 @@ export function EuropePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const run = async (url: string) => {
+  const run = async (url: string, products: string[] = []) => {
     setDomain(url);
     setCompanyInUrl(url);
     setLoading(true);
     setError(null);
     setData(null);
+    setProgress(null);
     try {
-      setData(await scoreEurope(url));
+      setData(await scoreEuropeStream(url, products, setProgress));
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -52,16 +56,17 @@ export function EuropePage() {
           hint="We read your public website and annual report, European trade data and professional profiles. Nothing is asked of you. A first check takes one to two minutes."
         />
         {error && <p className="text-sm text-red">{error}</p>}
-        {loading && <Scanning />}
-        {data && <EuropeBody data={data} />}
+        {loading && (progress ? <ProgressView p={progress} /> : <Scanning />)}
+        {data && <EuropeBody data={data} onProducts={(products) => run(domain, products)} />}
       </main>
       <SiteFooter />
     </>
   );
 }
 
-function EuropeBody({ data }: { data: Snapshot }) {
+function EuropeBody({ data, onProducts }: { data: Snapshot; onProducts: (products: string[]) => void }) {
   if (data.mode === "REJECTED") return <Notice title="Please enter a company website" body={data.message} />;
+  const unread = data.mode === "NO_OFFERING" || data.mode === "NOT_READ";
   const card = (s: HubCard, accent: "orange" | "green", key: "insight" | "reason") => (
     <ReasonedCard accent={accent} label={s.label} question={s.question} score={s.score} band={s.band}
       why={s.why} basis={s.basis}
@@ -75,6 +80,7 @@ function EuropeBody({ data }: { data: Snapshot }) {
       {data.message && (
         <p className="rounded-panel border-l-4 border-orange bg-orange-soft px-5 py-3 text-[15px] text-ink">{data.message}</p>
       )}
+      {unread && <ProductsForm prominent initial={[]} onSubmit={onProducts} />}
 
       {(data.market || data.readiness) && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -91,6 +97,7 @@ function EuropeBody({ data }: { data: Snapshot }) {
           <div className={`grid grid-cols-1 gap-5 ${data.own_evidence.length === 4 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
             {data.own_evidence.map((p) => <EvidenceCard key={p.title} p={p} />)}
           </div>
+          {!unread && <ProductsForm initial={data.products_named ?? []} onSubmit={onProducts} />}
         </section>
       )}
 
@@ -147,5 +154,111 @@ function WhereToStart({ data }: { data: Snapshot }) {
         </div>
       )}
     </section>
+  );
+}
+
+/** What is known while the check runs: the company first, then its products
+ *  and Europe's demand for them, then the rest. */
+function ProgressView({ p }: { p: EuropeProgress }) {
+  const c = p.company;
+  const step = (done: boolean, active: boolean, label: string, body?: ReactNode) => (
+    <li className="grid grid-cols-[18px_1fr] gap-3">
+      <span className={`mt-[6px] h-2.5 w-2.5 rounded-full ${done ? "bg-green" : active ? "animate-pulse bg-orange" : "bg-line"}`} />
+      <div>
+        <p className={`text-[15px] ${done || active ? "text-ink" : "text-mute"}`}>{label}</p>
+        {body}
+      </div>
+    </li>
+  );
+  const hasProducts = p.stage === "products";
+  const told = p.products_source === "visitor";
+  return (
+    <section className="rounded-panel border border-line bg-white p-6" aria-live="polite">
+      <ol className="space-y-4">
+        {step(true, false, "Read your website and company record",
+          c?.name ? (
+            <p className="mt-1 text-[14px] text-mute">
+              <b className="text-ink">{c.name}</b>
+              {[c.location, c.headcount].filter(Boolean).map((x) => ` · ${x}`).join("")}
+            </p>
+          ) : undefined)}
+        {step(hasProducts, !hasProducts,
+          hasProducts
+            ? (told ? "Matched the products you told us to European trade data" : "Matched your products to European trade data")
+            : "Matching your products to European trade data",
+          hasProducts ? (p.products?.length ? (
+            <ul className="mt-2 space-y-1.5">
+              {p.products.map((x) => (
+                <li key={x.name} className="text-[14px] text-mute">
+                  <b className="text-ink">{x.name}</b>{x.demand ? `: Europe imports ${x.demand}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-1 text-[14px] text-mute">We could not tell from your website what you sell.</p>) : undefined)}
+        {step(false, hasProducts, "Checking your readiness, the best countries and who already sells there",
+          <p className="mt-1 text-[13px] text-mute">This part takes up to a minute more.</p>)}
+      </ol>
+    </section>
+  );
+}
+
+/** The visitor's own products: to complete a check when we could not read
+ *  the site, or to correct our match. Up to three, in their words. */
+function ProductsForm({ initial, onSubmit, prominent = false }: {
+  initial: string[]; onSubmit: (products: string[]) => void; prominent?: boolean;
+}) {
+  const [items, setItems] = useState<string[]>([initial[0] ?? "", initial[1] ?? "", initial[2] ?? ""]);
+  const [open, setOpen] = useState(prominent);
+  const filled = items.map((x) => x.trim()).filter(Boolean);
+  const examples = ["e.g. Cotton bath towels", "e.g. Kitchen linen", "e.g. Bed sheets"];
+  const form = (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (filled.length) onSubmit(filled);
+      }}
+      className="space-y-3"
+    >
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {items.map((v, i) => (
+          <input
+            key={i}
+            id={`product-${i}`}
+            value={v}
+            maxLength={80}
+            aria-label={`Product or service ${i + 1}`}
+            placeholder={examples[i]}
+            onChange={(e) => setItems(items.map((x, j) => (j === i ? e.target.value : x)))}
+            className="rounded-md border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none focus:border-orange"
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={!filled.length}
+          className="rounded-md bg-orange px-5 py-2.5 text-[15px] font-semibold text-white disabled:opacity-40">
+          Assess these products
+        </button>
+        <span className="text-[13px] text-mute">We match them to official EU trade codes. Takes about a minute.</span>
+      </div>
+    </form>
+  );
+  if (prominent) {
+    return (
+      <section className="rounded-panel border border-line border-t-4 border-t-orange bg-white p-6">
+        <h3 className="text-[18px] font-bold text-ink">Tell us what you sell</h3>
+        <p className="mb-4 mt-1 text-[14.5px] text-mute">Name your two or three main products or services, in your own words.</p>
+        {form}
+      </section>
+    );
+  }
+  return (
+    <div className="rounded-panel border border-dashed border-line px-5 py-4">
+      {open ? form : (
+        <button type="button" onClick={() => setOpen(true)}
+          className="text-[14.5px] font-semibold text-orange underline-offset-4 hover:underline">
+          Not your products? Correct them and we will assess again
+        </button>
+      )}
+    </div>
   );
 }

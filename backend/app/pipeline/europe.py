@@ -21,7 +21,8 @@ from app.reference import europe_reference as ref
 from app.scoring import europe as scoring
 from app.signals import competitors as competitor_signals
 from app.signals import europe_peers, europe_presence
-from app.signals.products import Offering, map_offering
+from app.signals.products import (Offering, lock_offering, locked_offering, map_offering,
+                                  offering_from_names)
 
 EU9 = ["DE", "IT", "FR", "NL", "ES", "BE", "PL", "SE", "CZ"]
 COUNTRY_NAMES = {**europe_presence.COUNTRIES}
@@ -54,6 +55,7 @@ class EuropeAssessment:
     time_range: dict | None = None
     timings: dict = field(default_factory=dict)
     notes: list = field(default_factory=list)
+    offering_source: str | None = None               # site | visitor
 
 
 def _country_rows_goods(hs: str) -> list[dict]:
@@ -109,7 +111,41 @@ def _annual_report(a: EuropeAssessment, scrape, llm) -> None:
         a.report_url = url
 
 
-def run(input_url: str, settings: Settings, llm=None) -> EuropeAssessment:
+def _offering(a: EuropeAssessment, sr, llm, products: list[str] | None) -> Offering | None:
+    """Visitor's own products first (they correct or complete the site), then
+    the 90-day lock, then a fresh read of the website, which is then locked."""
+    from app.data import kv
+    if products:
+        off = offering_from_names(a.name or a.domain, products, llm)
+        if off:
+            lock_offering(a.domain, off, "visitor")
+            kv.delete("competitors", a.domain)      # competitors follow the corrected products
+            a.offering_source = "visitor"
+            return off
+    off, src = locked_offering(a.domain)
+    if off:
+        a.offering_source = src
+        return off
+    off = map_offering(a.name, sr, llm) if sr.reachable else None
+    if off:
+        lock_offering(a.domain, off, "site")
+        a.offering_source = "site"
+    return off
+
+
+def _emit(on_stage, stage: str, a: EuropeAssessment) -> None:
+    if on_stage is None:
+        return
+    try:
+        on_stage(stage, a)
+    except Exception:
+        pass                                        # progress is a courtesy; the run goes on
+
+
+def run(input_url: str, settings: Settings, llm=None, products: list[str] | None = None,
+        on_stage=None) -> EuropeAssessment:
+    """`products`: what the visitor typed, when the site could not be read or
+    they correct our match. `on_stage(stage, a)` is called as parts finish."""
     t0 = time.monotonic()
     domain = apollo_adapter.normalise_domain(input_url.split("//")[-1])
     a = EuropeAssessment(input_url=input_url, domain=domain)
@@ -124,16 +160,18 @@ def run(input_url: str, settings: Settings, llm=None) -> EuropeAssessment:
         f_pres = pool.submit(europe_presence.assess, domain, sr, settings)
         a.org = f_org.result() if f_org else None
         a.name = (a.org or {}).get("name") or sr.page_title_name or domain.split(".")[0].title()
-        f_off = pool.submit(map_offering, a.name, sr, llm) if sr.reachable else None
+        _emit(on_stage, "company", a)
+        f_off = pool.submit(_offering, a, sr, llm, products)
         f_rep = pool.submit(_annual_report, a, sr, llm)
         f_peer = pool.submit(europe_peers.cohort, domain, a.org, None, settings) if a.org else None
-        a.offering = f_off.result() if f_off else None
+        a.offering = f_off.result()
         a.timings["offering"] = round(time.monotonic() - t0, 1)
 
         # Demand and tariffs per product (top 3), in parallel.
         prods = a.offering.products[:3] if a.offering else []
         views = list(pool.map(lambda p: eurostat.demand_view(p["hs"]), prods))
         a.demand = [{"product": p, "view": v, "tariff": None} for p, v in zip(prods, views)]
+        _emit(on_stage, "products", a)
         best = max((d for d in a.demand if d["view"]), key=lambda d: d["view"]["extra_eu"], default=None)
         f_tar = pool.submit(wits.mfn_tariff, best["product"]["hs"]) if best and len(best["product"]["hs"]) == 6 else None
         is_services = a.offering is not None and a.offering.kind == "services"

@@ -46,6 +46,8 @@ def recheck_roles(x_task_key: str = Header(default="")) -> dict:
     _authorised(x_task_key)
     from app.api import visits
     pruned = visits.prune()   # visit log retention, on the same daily schedule
+    from app.data.store import prune_leads
+    leads_pruned = prune_leads()   # report requests: 24 months
     today = date.today()
     due = []
     for domain in kv.keys("roles"):
@@ -67,4 +69,4 @@ def recheck_roles(x_task_key: str = Header(default="")) -> dict:
         if sr.reachable and sr.careers_urls:
             role_history.observe(domain, sr.job_titles, careers_url=sr.careers_urls[0], today=today)
             checked.append({"domain": domain, "roles": len(sr.job_titles)})
-    return {"due": len(due), "checked": checked, "visits_pruned": pruned}
+    return {"due": len(due), "checked": checked, "visits_pruned": pruned, "leads_pruned": leads_pruned}
